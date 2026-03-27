@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Dynamisches Manifest für Eigene Icons und Namen (Fehlerfreier Code) -->
+    <!-- Dynamisches Manifest für Eigene Icons und Namen -->
     <script>
         const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
         const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
@@ -254,18 +254,17 @@
             window.print();
           };
 
-          // Echte PDF generieren (garantiert zuverlässig durch sichtbares DOM Rendering)
+          // NEU: Zuverlässiges Generieren der PDF ohne versteckte Hintergrundelemente (Verhindert das "Lädt..." Einfrieren)
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
 
             try {
-              // 1. ZWINGE DAS HANDY, DIE TABELLE AUF DEN BILDSCHIRM ZU ZEICHNEN
-              // Durch das Hinzufügen dieser Klasse wird die App kurz "weiß", die Tabelle wird auf 800px verbreitert und 100% sichtbar gemacht.
+              // 1. Sichtbare Umgebung für PDF erzwingen (Kurzes Aufflackern einer Druckansicht)
               document.body.classList.add('pdf-export-active');
 
-              // 2. PAUSE: Wir geben dem Handy 400 Millisekunden Zeit, um die neue Ansicht komplett zu rendern
-              await new Promise(resolve => setTimeout(resolve, 400));
+              // 2. Kurz warten, damit der Browser die UI-Änderung anwenden und zeichnen kann
+              await new Promise(resolve => setTimeout(resolve, 200));
               
               const printArea = document.querySelector('.print-area');
 
@@ -280,34 +279,49 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
               };
 
-              // 3. PDF erstellen (Das Element ist jetzt real auf dem Bildschirm, daher ist die PDF nicht leer)
-              const pdfBlob = await html2pdf().set(opt).from(printArea).output('blob');
+              // 3. PDF erstellen: outputPdf('blob') gibt sicher einen Blob zurück, ohne einzufrieren!
+              const pdfBlob = await html2pdf().set(opt).from(printArea).outputPdf('blob');
               
-              // 4. Modus wieder beenden, die App sieht sofort wieder normal aus
+              // 4. Normale App-Ansicht sofort wiederherstellen
               document.body.classList.remove('pdf-export-active');
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
-              if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                  title: 'Stundenzettel PDF',
-                  files: [file]
-                });
-              } else {
+              const downloadFallback = () => {
                 const url = URL.createObjectURL(pdfBlob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = finalFileName;
                 a.click();
                 URL.revokeObjectURL(url);
-                alert("Dein Handy blockiert das direkte Teilen in Apps. Die PDF wurde stattdessen heruntergeladen!");
+              };
+
+              // 5. Teilen-Menü öffnen
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                  await navigator.share({
+                    title: 'Stundenzettel PDF',
+                    files: [file]
+                  });
+                } catch (shareErr) {
+                  console.log("Teilen vom Nutzer abgebrochen oder blockiert:", shareErr);
+                  // Wenn der Browser das direkte Teilen z.B. wegen Timeout blockiert
+                  if (shareErr.name === 'NotAllowedError') {
+                    downloadFallback();
+                  }
+                }
+              } else {
+                // Fallback, falls das Handy Dateien über Share API nicht unterstützt
+                downloadFallback();
+                alert("Dein Handy unterstützt das direkte Teilen von Dateien hier nicht. Das PDF wurde heruntergeladen!");
               }
             } catch (err) {
-              console.error('PDF Generierung/Teilen fehlgeschlagen:', err);
-              alert("Fehler beim Erstellen der PDF. Bitte versuche es noch einmal.");
-              document.body.classList.remove('pdf-export-active');
+              console.error('PDF Generierung fehlgeschlagen:', err);
+              alert("Ein Fehler ist beim Erstellen der PDF aufgetreten. Bitte versuche es erneut.");
+              document.body.classList.remove('pdf-export-active'); // Zur Sicherheit
             } finally {
               setIsGenerating(false);
+              document.body.classList.remove('pdf-export-active'); // Zur Sicherheit
             }
           };
 
@@ -549,7 +563,7 @@
               .print-table { display: none; }
               .print-block { display: none; }
               
-              /* --- NEU: ZUVERLÄSSIGER PDF EXPORT --- */
+              /* --- NEU: ZUVERLÄSSIGER PDF EXPORT CSS --- */
               body.pdf-export-active {
                 background-color: white !important;
                 color: black !important;
