@@ -254,47 +254,20 @@
             window.print();
           };
 
-          // Echte PDF generieren und via WhatsApp/Teilen Menü versenden
+          // Echte PDF generieren (garantiert zuverlässig durch sichtbares DOM Rendering)
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
 
             try {
-              const printArea = document.querySelector('.print-area');
-              const clone = printArea.cloneNode(true);
-              
-              // Versteckte Elemente sichtbar machen
-              clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
-              clone.querySelectorAll('.no-print').forEach(el => el.remove());
-              
-              clone.querySelectorAll('.print-table').forEach(el => {
-                  el.classList.remove('print-table');
-                  el.style.display = 'table';
-                  el.style.width = '100%';
-              });
-              clone.querySelectorAll('.print-block').forEach(el => {
-                  el.classList.remove('print-block');
-                  el.style.display = 'block';
-              });
-              
-              const container = document.createElement('div');
-              // WICHTIGE ÄNDERUNG: Statt -9999px positionieren wir den Container absolut und setzen ihn in den Hintergrund (z-index). 
-              // Dadurch wird die Tabelle garantiert vom PDF-Tool gezeichnet und bleibt nicht mehr leer!
-              container.style.position = 'absolute';
-              container.style.left = '0';
-              container.style.top = '0';
-              container.style.width = '800px'; 
-              container.style.padding = '40px';
-              container.style.background = 'white';
-              container.style.color = 'black';
-              container.style.fontFamily = 'sans-serif';
-              container.style.zIndex = '-9999'; // Hält den Block hinter der App versteckt
-              
-              container.appendChild(clone);
-              document.body.appendChild(container);
+              // 1. ZWINGE DAS HANDY, DIE TABELLE AUF DEN BILDSCHIRM ZU ZEICHNEN
+              // Durch das Hinzufügen dieser Klasse wird die App kurz "weiß", die Tabelle wird auf 800px verbreitert und 100% sichtbar gemacht.
+              document.body.classList.add('pdf-export-active');
 
-              // Eine kleine Pause (100ms), damit der Browser die Tabelle kurz rendern kann, bevor das Foto für die PDF geschossen wird
-              await new Promise(resolve => setTimeout(resolve, 100));
+              // 2. PAUSE: Wir geben dem Handy 400 Millisekunden Zeit, um die neue Ansicht komplett zu rendern
+              await new Promise(resolve => setTimeout(resolve, 400));
+              
+              const printArea = document.querySelector('.print-area');
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
@@ -307,9 +280,11 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
               };
 
-              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
+              // 3. PDF erstellen (Das Element ist jetzt real auf dem Bildschirm, daher ist die PDF nicht leer)
+              const pdfBlob = await html2pdf().set(opt).from(printArea).output('blob');
               
-              document.body.removeChild(container);
+              // 4. Modus wieder beenden, die App sieht sofort wieder normal aus
+              document.body.classList.remove('pdf-export-active');
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -330,6 +305,7 @@
             } catch (err) {
               console.error('PDF Generierung/Teilen fehlgeschlagen:', err);
               alert("Fehler beim Erstellen der PDF. Bitte versuche es noch einmal.");
+              document.body.classList.remove('pdf-export-active');
             } finally {
               setIsGenerating(false);
             }
@@ -572,6 +548,39 @@
               }
               .print-table { display: none; }
               .print-block { display: none; }
+              
+              /* --- NEU: ZUVERLÄSSIGER PDF EXPORT --- */
+              body.pdf-export-active {
+                background-color: white !important;
+                color: black !important;
+              }
+              body.pdf-export-active, 
+              body.pdf-export-active #root, 
+              body.pdf-export-active .max-w-md, 
+              body.pdf-export-active main,
+              body.pdf-export-active .print-area {
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+              }
+              body.pdf-export-active .max-w-md {
+                max-width: 800px !important;
+                width: 800px !important;
+                margin: 0 auto !important;
+                padding: 20px !important;
+                box-shadow: none !important;
+              }
+              body.pdf-export-active .no-print { display: none !important; }
+              body.pdf-export-active .print-block { display: block !important; }
+              body.pdf-export-active .print-table { 
+                display: table !important; 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px; 
+                font-size: 12pt; 
+                color: black; 
+              }
             `;
             document.head.appendChild(style);
             return () => document.head.removeChild(style);
