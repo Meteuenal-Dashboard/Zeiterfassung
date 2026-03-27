@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Dynamisches Manifest für Eigene Icons und Namen -->
+    <!-- Dynamisches Manifest für Eigene Icons und Namen (Fehlerfreier Code) -->
     <script>
         const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
         const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
@@ -21,7 +21,7 @@
             "name": savedAppName,
             "short_name": savedAppName,
             "display": "standalone",
-            "start_url": ".",
+            "start_url": location.pathname || ".",
             "background_color": "#f9fafb",
             "theme_color": "#4f46e5",
             "icons": [
@@ -62,7 +62,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 
-<!-- FIX: fixed inset-0 und overflow-hidden garantieren, dass die App bündig ist und man nicht scrollen muss! -->
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans fixed inset-0 overflow-hidden">
     
     <div id="root" class="h-full w-full"></div>
@@ -268,10 +267,10 @@
               clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
               clone.querySelectorAll('.no-print').forEach(el => el.remove());
               
-              // FIX FÜR LEERES PDF: Entferne Print-Klassen, die das Element im Hintergrund verstecken
               clone.querySelectorAll('.print-table').forEach(el => {
                   el.classList.remove('print-table');
                   el.style.display = 'table';
+                  el.style.width = '100%';
               });
               clone.querySelectorAll('.print-block').forEach(el => {
                   el.classList.remove('print-block');
@@ -279,16 +278,23 @@
               });
               
               const container = document.createElement('div');
-              container.style.position = 'fixed';
-              container.style.left = '-9999px';
+              // WICHTIGE ÄNDERUNG: Statt -9999px positionieren wir den Container absolut und setzen ihn in den Hintergrund (z-index). 
+              // Dadurch wird die Tabelle garantiert vom PDF-Tool gezeichnet und bleibt nicht mehr leer!
+              container.style.position = 'absolute';
+              container.style.left = '0';
               container.style.top = '0';
               container.style.width = '800px'; 
               container.style.padding = '40px';
               container.style.background = 'white';
               container.style.color = 'black';
               container.style.fontFamily = 'sans-serif';
+              container.style.zIndex = '-9999'; // Hält den Block hinter der App versteckt
+              
               container.appendChild(clone);
               document.body.appendChild(container);
+
+              // Eine kleine Pause (100ms), damit der Browser die Tabelle kurz rendern kann, bevor das Foto für die PDF geschossen wird
+              await new Promise(resolve => setTimeout(resolve, 100));
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
@@ -301,7 +307,7 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
               };
 
-              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
               
               document.body.removeChild(container);
               
