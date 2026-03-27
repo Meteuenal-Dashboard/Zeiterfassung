@@ -254,36 +254,70 @@
             window.print();
           };
 
-          // NEU: Zuverlässiges Generieren der PDF ohne versteckte Hintergrundelemente (Verhindert das "Lädt..." Einfrieren)
+          // NEU: Zuverlässiges Generieren der PDF ohne Aufflackern und ohne Abschneiden
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
 
             try {
-              // 1. Sichtbare Umgebung für PDF erzwingen (Kurzes Aufflackern einer Druckansicht)
-              document.body.classList.add('pdf-export-active');
-
-              // 2. Kurz warten, damit der Browser die UI-Änderung anwenden und zeichnen kann
-              await new Promise(resolve => setTimeout(resolve, 200));
-              
               const printArea = document.querySelector('.print-area');
+              const clone = printArea.cloneNode(true);
+              
+              // Versteckte Elemente sichtbar machen
+              clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
+              clone.querySelectorAll('.no-print').forEach(el => el.remove());
+              
+              // Sichere Spaltenbreite erzwingen
+              clone.querySelectorAll('.print-table').forEach(el => {
+                  el.classList.remove('print-table');
+                  el.style.display = 'table';
+                  el.style.width = '100%';
+                  el.style.tableLayout = 'fixed';
+              });
+              clone.querySelectorAll('.print-block').forEach(el => {
+                  el.classList.remove('print-block');
+                  el.style.display = 'block';
+              });
+              
+              // Versteckter Hintergrund-Container (Vollständig unsichtbar für Nutzer!)
+              const container = document.createElement('div');
+              container.style.position = 'absolute';
+              container.style.left = '0';
+              container.style.top = '0';
+              container.style.zIndex = '-9999'; // Hält den Container komplett unsichtbar im Hintergrund
+              container.style.width = '800px'; 
+              container.style.maxWidth = '800px';
+              container.style.padding = '40px';
+              container.style.background = 'white';
+              container.style.color = 'black';
+              container.style.fontFamily = 'sans-serif';
+              container.style.boxSizing = 'border-box';
+              
+              container.appendChild(clone);
+              document.body.appendChild(container);
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
 
+              // FORMAT UND BREITEN-STEUERUNG (verhindert das Abschneiden!)
               const opt = {
-                margin:       10,
+                margin:       0, // Wichtig: 0, da wir Padding im Container nutzen
                 filename:     finalFileName,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                html2canvas:  { 
+                    scale: 2, 
+                    useCORS: true, 
+                    windowWidth: 800,
+                    width: 800,
+                    scrollY: 0
+                },
+                jsPDF:        { unit: 'px', format: [800, 1131], orientation: 'portrait' } // Das zwingt die PDF-Breite auf exakt 800px!
               };
 
-              // 3. PDF erstellen: outputPdf('blob') gibt sicher einen Blob zurück, ohne einzufrieren!
-              const pdfBlob = await html2pdf().set(opt).from(printArea).outputPdf('blob');
+              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
               
-              // 4. Normale App-Ansicht sofort wiederherstellen
-              document.body.classList.remove('pdf-export-active');
+              // Container direkt wieder aufräumen
+              document.body.removeChild(container);
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -296,7 +330,7 @@
                 URL.revokeObjectURL(url);
               };
 
-              // 5. Teilen-Menü öffnen
+              // Prüfen, ob das Gerät direkt teilen erlaubt
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                   await navigator.share({
@@ -304,24 +338,20 @@
                     files: [file]
                   });
                 } catch (shareErr) {
-                  console.log("Teilen vom Nutzer abgebrochen oder blockiert:", shareErr);
-                  // Wenn der Browser das direkte Teilen z.B. wegen Timeout blockiert
+                  console.log("Teilen vom Nutzer abgebrochen oder blockiert.");
                   if (shareErr.name === 'NotAllowedError') {
-                    downloadFallback();
+                      downloadFallback();
                   }
                 }
               } else {
-                // Fallback, falls das Handy Dateien über Share API nicht unterstützt
                 downloadFallback();
-                alert("Dein Handy unterstützt das direkte Teilen von Dateien hier nicht. Das PDF wurde heruntergeladen!");
+                alert("Dein Handy blockiert das direkte Teilen in Apps. Die PDF wurde stattdessen heruntergeladen!");
               }
             } catch (err) {
               console.error('PDF Generierung fehlgeschlagen:', err);
-              alert("Ein Fehler ist beim Erstellen der PDF aufgetreten. Bitte versuche es erneut.");
-              document.body.classList.remove('pdf-export-active'); // Zur Sicherheit
+              alert("Fehler beim Erstellen der PDF. Bitte versuche es noch einmal.");
             } finally {
               setIsGenerating(false);
-              document.body.classList.remove('pdf-export-active'); // Zur Sicherheit
             }
           };
 
@@ -495,7 +525,7 @@
                 </div>
               </div>
 
-              {/* NEU: Eigene App Personalisieren */}
+              {/* App Personalisieren */}
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
@@ -562,39 +592,6 @@
               }
               .print-table { display: none; }
               .print-block { display: none; }
-              
-              /* --- NEU: ZUVERLÄSSIGER PDF EXPORT CSS --- */
-              body.pdf-export-active {
-                background-color: white !important;
-                color: black !important;
-              }
-              body.pdf-export-active, 
-              body.pdf-export-active #root, 
-              body.pdf-export-active .max-w-md, 
-              body.pdf-export-active main,
-              body.pdf-export-active .print-area {
-                height: auto !important;
-                min-height: auto !important;
-                overflow: visible !important;
-                position: static !important;
-              }
-              body.pdf-export-active .max-w-md {
-                max-width: 800px !important;
-                width: 800px !important;
-                margin: 0 auto !important;
-                padding: 20px !important;
-                box-shadow: none !important;
-              }
-              body.pdf-export-active .no-print { display: none !important; }
-              body.pdf-export-active .print-block { display: block !important; }
-              body.pdf-export-active .print-table { 
-                display: table !important; 
-                width: 100%; 
-                border-collapse: collapse; 
-                margin-top: 20px; 
-                font-size: 12pt; 
-                color: black; 
-              }
             `;
             document.head.appendChild(style);
             return () => document.head.removeChild(style);
