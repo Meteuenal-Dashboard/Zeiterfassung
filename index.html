@@ -3,23 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zeiterfassung</title>
     
     <!-- PWA / App-Modus Einstellungen -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
-    
-    <!-- Dynamisches Web App Manifest für die Installation auf dem Handy -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Zeiterfassung","short_name":"Zeiten","display":"standalone","start_url":".","background_color":"#f9fafb","theme_color":"#4f46e5","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%234f46e5\'%3E%3Cpath d=\'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z\'/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml","purpose":"any maskable"}]}'>
 
-    <title>Zeiterfassung</title>
+    <!-- Manifest für App-Installation (Icon, Name, Vollbild) -->
+    <script>
+        const manifest = {
+            "name": "Zeiterfassung",
+            "short_name": "Zeiten",
+            "display": "standalone",
+            "start_url": ".",
+            "background_color": "#f9fafb",
+            "theme_color": "#4f46e5",
+            "icons": [
+                {
+                    "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E",
+                    "sizes": "192x192",
+                    "type": "image/svg+xml",
+                    "purpose": "any maskable"
+                },
+                {
+                    "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E",
+                    "sizes": "512x512",
+                    "type": "image/svg+xml",
+                    "purpose": "any maskable"
+                }
+            ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
+    </script>
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class', // Wichtig für die Dark Mode Funktion
+            darkMode: 'class',
         }
     </script>
 
@@ -27,11 +51,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
     
-    <!-- Babel (Übersetzt React) -->
+    <!-- Babel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js" crossorigin="anonymous"></script>
     
-    <!-- html2pdf.js (Erstellt echte PDFs im Browser) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" xintegrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
     
@@ -229,66 +253,68 @@
             if (isGenerating) return;
             setIsGenerating(true);
 
-            // Stundenzettel-Inhalt kopieren für PDF
-            const printArea = document.querySelector('.print-area');
-            const clone = printArea.cloneNode(true);
-            
-            // Versteckte Elemente für PDF sichtbar machen
-            clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
-            clone.querySelectorAll('.no-print').forEach(el => el.remove());
-            
-            // Container für PDF-Generierung außerhalb des Bildschirms
-            const container = document.createElement('div');
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.width = '800px'; 
-            container.style.padding = '40px';
-            container.style.background = 'white';
-            container.style.color = 'black';
-            container.style.fontFamily = 'sans-serif';
-            container.appendChild(clone);
-            document.body.appendChild(container);
-
-            const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
-            const finalFileName = fileName.replace(/\s+/g, '_');
-
-            const opt = {
-              margin:       10,
-              filename:     finalFileName,
-              image:        { type: 'jpeg', quality: 0.98 },
-              html2canvas:  { scale: 2, useCORS: true },
-              jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
             try {
-              // PDF als Blob-Datei erstellen
-              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
+              // Stundenzettel-Inhalt kopieren für PDF
+              const printArea = document.querySelector('.print-area');
+              const clone = printArea.cloneNode(true);
               
-              // Als File-Objekt für Web Share API verpacken
+              // Versteckte Elemente für PDF sichtbar machen
+              clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
+              clone.querySelectorAll('.no-print').forEach(el => el.remove());
+              
+              // Container für PDF-Generierung (Desktop-Breite forcieren, damit Euro nicht abgeschnitten wird)
+              const container = document.createElement('div');
+              container.style.position = 'fixed';
+              container.style.left = '-9999px';
+              container.style.top = '0';
+              container.style.width = '800px'; 
+              container.style.padding = '40px';
+              container.style.background = 'white';
+              container.style.color = 'black';
+              container.style.fontFamily = 'sans-serif';
+              container.appendChild(clone);
+              document.body.appendChild(container);
+
+              const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
+              const finalFileName = fileName.replace(/\s+/g, '_');
+
+              const opt = {
+                margin:       10,
+                filename:     finalFileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+              };
+
+              // PDF als Blob-Datei erstellen (wartet, bis html2pdf fertig ist)
+              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              
+              // Temporären Container wieder löschen
+              document.body.removeChild(container);
+              
+              // Als File-Objekt verpacken
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
-              // Prüfen, ob das Handy Datei-Teilen unterstützt
+              // Prüfen, ob das Handy das Teilen von Dateien unterstützt
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                   title: 'Stundenzettel PDF',
                   files: [file]
                 });
               } else {
-                // Fallback: Herunterladen, wenn das Handy das direkte Teilen nicht unterstützt
+                // Fallback: Wenn das Gerät das direkte Teilen blockiert, laden wir die PDF normal herunter
                 const url = URL.createObjectURL(pdfBlob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = finalFileName;
                 a.click();
                 URL.revokeObjectURL(url);
-                alert("Datei-Teilen wird auf diesem Gerät nicht direkt unterstützt. Die PDF wurde heruntergeladen.");
+                alert("Dein Handy blockiert das direkte Teilen in Apps. Die PDF wurde stattdessen heruntergeladen!");
               }
             } catch (err) {
               console.error('PDF Generierung/Teilen fehlgeschlagen:', err);
-              alert("Fehler beim Erstellen der PDF.");
+              alert("Fehler beim Erstellen der PDF. Bitte versuche es noch einmal.");
             } finally {
-              document.body.removeChild(container);
               setIsGenerating(false);
             }
           };
@@ -320,13 +346,13 @@
               {/* Export Buttons */}
               <div className="flex space-x-2 mb-6 no-print">
                 <button onClick={exportPDF} className="flex-1 flex items-center justify-center p-2 bg-gray-900 dark:bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition active:scale-[0.98]">
-                  <FileText className="w-4 h-4 mr-1"/> PDF
+                  <FileText className="w-4 h-4 mr-1"/> Drucken
                 </button>
                 <button onClick={exportCSV} className="flex-1 flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl text-sm font-medium hover:bg-gray-200 transition active:scale-[0.98]">
                   <Download className="w-4 h-4 mr-1"/> CSV
                 </button>
                 <button onClick={shareViaWhatsApp} disabled={isGenerating} className={`flex-1 flex items-center justify-center p-2 text-white rounded-xl text-sm font-medium transition active:scale-[0.98] ${isGenerating ? 'bg-green-400' : 'bg-green-500 hover:bg-green-600'}`}>
-                  {isGenerating ? <span className="animate-pulse">Lädt...</span> : <><Share2 className="w-4 h-4 mr-1"/> Teilen</>}
+                  {isGenerating ? <span className="animate-pulse">Lädt...</span> : <><Share2 className="w-4 h-4 mr-1"/> Teilen (PDF)</>}
                 </button>
               </div>
 
@@ -341,15 +367,15 @@
                 {filteredEntries.length === 0 ? (
                   <div className="text-center text-gray-500 mt-10 no-print">Keine Einträge in diesem Monat.</div>
                 ) : (
-                  // Inline-Styles für perfekte PDF und Print-Darstellung mit Verdienst
+                  // Inline-Styles & Feste Spaltenbreiten, damit PDF/Drucker nichts abschneidet!
                   <table className="w-full hidden print-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px', color: 'black' }}>
                     <thead>
                       <tr>
-                        <th style={{ borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Datum</th>
-                        <th style={{ borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Start</th>
-                        <th style={{ borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Ende</th>
-                        <th style={{ borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'right' }}>Stunden</th>
-                        <th style={{ borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'right' }}>Verdienst</th>
+                        <th style={{ width: '20%', borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Datum</th>
+                        <th style={{ width: '15%', borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Start</th>
+                        <th style={{ width: '15%', borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'left' }}>Ende</th>
+                        <th style={{ width: '25%', borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'right' }}>Stunden</th>
+                        <th style={{ width: '25%', borderBottom: '2px solid #000', padding: '8px 4px', textAlign: 'right' }}>Verdienst</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -467,26 +493,15 @@
             style.innerHTML = `
               @page { margin: 1cm; size: A4 portrait; }
               @media print {
-                /* Setzt das Layout zurück, um leere Seiten zu verhindern */
                 body, html { height: auto !important; min-height: auto !important; overflow: visible !important; background: white; color: black; }
                 #root { height: auto !important; overflow: visible !important; }
-                
-                /* Verhindert flexbox/height constraints vom Haupt-Container */
                 .h-\\[100dvh\\] { height: auto !important; }
                 .overflow-hidden { overflow: visible !important; }
                 .max-w-md { max-width: 100% !important; box-shadow: none !important; margin: 0 !important; border: none !important;}
-                
-                /* Standard-Elemente ausblenden */
                 .no-print { display: none !important; }
-                
-                /* Print Area korrekt darstellen */
                 .print-area { padding: 0 !important; overflow: visible !important; margin-top: 0 !important; }
                 .print-block { display: block !important; }
-                
-                /* Kompaktes Tabellen-Layout */
                 .print-table { display: table !important; width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11pt; }
-                
-                /* Seitenumbrüche optimieren */
                 tr { page-break-inside: avoid; }
               }
               .print-table { display: none; }
