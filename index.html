@@ -20,6 +20,12 @@
             const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
             const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
 
+            const getType = (src) => {
+                if (src.startsWith('data:image/svg')) return 'image/svg+xml';
+                if (src.startsWith('data:image/webp')) return 'image/webp';
+                return 'image/png';
+            };
+
             const manifest = {
                 "name": savedAppName,
                 "short_name": savedAppName,
@@ -31,36 +37,36 @@
                     {
                         "src": icon192,
                         "sizes": "192x192",
-                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "type": getType(icon192),
                         "purpose": "any"
                     },
                     {
                         "src": icon192,
                         "sizes": "192x192",
-                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "type": getType(icon192),
                         "purpose": "maskable"
                     },
                     {
                         "src": icon512,
                         "sizes": "512x512",
-                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "type": getType(icon512),
                         "purpose": "any"
                     },
                     {
                         "src": icon512,
                         "sizes": "512x512",
-                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "type": getType(icon512),
                         "purpose": "maskable"
                     }
                 ]
             };
             
-            // Manifest als Blob erstellen und verlinken
-            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-            const manifestUrl = URL.createObjectURL(blob);
+            // FIX: WebAPK Server von Google benötigen eine Data-URI. Da wir nun hochkomprimierte WebP-Bilder nutzen,
+            // ist der String kurz genug, um von Chrome nicht mehr blockiert zu werden.
+            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
             const link = document.createElement('link');
             link.rel = 'manifest';
-            link.href = manifestUrl;
+            link.href = manifestDataUrl;
             document.head.appendChild(link);
 
             // Favicon und Apple Icon setzen
@@ -510,7 +516,10 @@
                             canvas.height = targetSize;
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
-                            return canvas.toDataURL('image/png');
+                            
+                            // FIX: Statt PNG (oft 2+ Megabyte groß) nutzen wir nun stark komprimiertes WebP (ca. 20-50 KB). 
+                            // Dadurch passt das Bild mühelos in das Manifest und Google Chrome schmiert bei der Installation nicht ab!
+                            return canvas.toDataURL('image/webp', 0.8);
                         };
 
                         const icon192 = resizeImage(192);
@@ -519,7 +528,7 @@
                         localStorage.setItem('pwa_icon_192', icon192);
                         localStorage.setItem('pwa_icon_512', icon512);
                         
-                        alert('Icon wurde erfolgreich geändert! Bitte lade die Seite einmal neu.');
+                        alert('Icon wurde erfolgreich geändert!\n\nWICHTIG: Damit Chrome das neue Bild erkennt, musst du die alte App vom Homescreen löschen und diese Seite komplett neu laden, bevor du die App neu installierst!');
                         window.location.reload();
                     };
                     img.src = event.target.result;
