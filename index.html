@@ -13,55 +13,67 @@
 
     <!-- Dynamisches Manifest für Eigene Icons und Namen -->
     <script>
-        const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
-        const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
-        
-        // Lade die zugeschnittenen Icons aus dem Speicher oder nutze Standard
-        const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
-        const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
+        (function() {
+            const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
+            const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+            
+            const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
+            const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
 
-        const manifest = {
-            "name": savedAppName,
-            "short_name": savedAppName,
-            "display": "standalone",
-            "start_url": window.location.href.split('?')[0].split('#')[0],
-            "background_color": "#f9fafb",
-            "theme_color": "#4f46e5",
-            "icons": [
-                {
-                    "src": icon192,
-                    "sizes": "192x192",
-                    "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": icon512,
-                    "sizes": "512x512",
-                    "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-        
-        // FIX: Sauberes und direktes Einfügen der Elemente in den DOM (ohne document.write), 
-        // um Abstürze bei großen Base64-Bildern (Fotos) zuverlässig zu verhindern.
-        const encodedManifest = encodeURIComponent(JSON.stringify(manifest));
-        
-        const manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
-        manifestLink.href = 'data:application/manifest+json;charset=utf-8,' + encodedManifest;
-        document.head.appendChild(manifestLink);
+            const manifest = {
+                "name": savedAppName,
+                "short_name": savedAppName,
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#f9fafb",
+                "theme_color": "#4f46e5",
+                "icons": [
+                    {
+                        "src": icon192,
+                        "sizes": "192x192",
+                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "any"
+                    },
+                    {
+                        "src": icon192,
+                        "sizes": "192x192",
+                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "maskable"
+                    },
+                    {
+                        "src": icon512,
+                        "sizes": "512x512",
+                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "any"
+                    },
+                    {
+                        "src": icon512,
+                        "sizes": "512x512",
+                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "maskable"
+                    }
+                ]
+            };
+            
+            // Manifest als Blob erstellen und verlinken
+            const blob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestUrl = URL.createObjectURL(blob);
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestUrl;
+            document.head.appendChild(link);
 
-        const iconLink = document.createElement('link');
-        iconLink.rel = 'icon';
-        iconLink.type = icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png';
-        iconLink.href = icon192;
-        document.head.appendChild(iconLink);
-
-        const appleIconLink = document.createElement('link');
-        appleIconLink.rel = 'apple-touch-icon';
-        appleIconLink.href = icon192;
-        document.head.appendChild(appleIconLink);
+            // Favicon und Apple Icon setzen
+            const appleLink = document.createElement('link');
+            appleLink.rel = 'apple-touch-icon';
+            appleLink.href = icon192;
+            document.head.appendChild(appleLink);
+            
+            const iconLink = document.createElement('link');
+            iconLink.rel = 'icon';
+            iconLink.href = icon192;
+            document.head.appendChild(iconLink);
+        })();
     </script>
     
     <!-- Tailwind CSS (Design) -->
@@ -468,7 +480,6 @@
         const SettingsView = ({ settings, saveSettings }) => {
           const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
           
-          // NEU: Lade das gespeicherte Icon oder nutze das Standard-Icon für die Vorschau in den Einstellungen
           const currentIconSrc = localStorage.getItem('pwa_icon_192') || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
 
           const handleChange = (e) => {
@@ -482,7 +493,6 @@
             window.location.reload();
           };
 
-          // Automatischer Bildzuschnitt für PWA Icons (192x192 & 512x512)
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -490,24 +500,19 @@
                 reader.onload = (event) => {
                     const img = new window.Image();
                     img.onload = () => {
-                        // Kürzeste Seite für den quadratischen Zuschnitt finden
                         const size = Math.min(img.width, img.height);
-                        // Zentrieren
                         const startX = (img.width - size) / 2;
                         const startY = (img.height - size) / 2;
 
-                        // Hilfsfunktion zum Generieren der jeweiligen Größe
                         const resizeImage = (targetSize) => {
                             const canvas = document.createElement('canvas');
                             canvas.width = targetSize;
                             canvas.height = targetSize;
                             const ctx = canvas.getContext('2d');
-                            // Bild zuschneiden und auf Zielgröße skalieren
                             ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
                             return canvas.toDataURL('image/png');
                         };
 
-                        // PWA verlangt zwingend 192x192 und 512x512
                         const icon192 = resizeImage(192);
                         const icon512 = resizeImage(512);
 
@@ -529,7 +534,6 @@
               
               <div className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
                 
-                {/* Dark Mode Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center cursor-pointer" onClick={() => saveSettings({ ...settings, darkMode: !settings.darkMode })}>
                     {settings.darkMode ? <Moon className="w-4 h-4 mr-2 text-indigo-400"/> : <Sun className="w-4 h-4 mr-2 text-orange-400"/>}
@@ -562,7 +566,6 @@
                 </div>
               </div>
 
-              {/* App Personalisieren */}
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
@@ -582,7 +585,6 @@
                   </div>
                 </div>
 
-                {/* Visuelle Vorschau des ausgewählten Icons */}
                 <div className="space-y-2 pt-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
                   <div className="flex items-center space-x-3">
@@ -644,7 +646,6 @@
             { id: 'settings', icon: Settings, label: 'Einstellungen' },
           ];
 
-          // Lade den eigenen Namen und das Icon direkt aus dem lokalen Speicher, falls vorhanden
           const customAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
           const customAppIcon = localStorage.getItem('pwa_icon_192');
 
@@ -653,13 +654,11 @@
               
               <header className="px-6 py-4 flex items-center justify-between no-print border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-colors duration-300">
                 <div className="flex items-center space-x-3">
-                  {/* Überprüft, ob ein eigenes Bild vorliegt. Wenn ja -> zeige es. Wenn nein -> zeige die kleine Uhr. */}
                   {customAppIcon && !customAppIcon.startsWith('data:image/svg') ? (
                     <img src={customAppIcon} alt="App Logo" className="w-8 h-8 rounded-lg shadow-sm object-cover border border-gray-100 dark:border-gray-700" />
                   ) : (
                     <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   )}
-                  {/* Auch der Name oben ändert sich jetzt mit */}
                   <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
                     {customAppName}
                   </h1>
@@ -700,19 +699,11 @@
         root.render(<App />);
     </script>
 
-    <!-- FIX: Fehlerfreie Service Worker Registrierung (ohne Blob-Abstürze) -->
+    <!-- FIX: Service Worker Registrierung -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // Blob-URLs sind für Service Worker aus Sicherheitsgründen im Browser streng verboten!
-                // Daher verweisen wir hier auf eine echte Datei. Erstelle später einfach eine leere "sw.js" auf deinem Server.
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        // Erfolgreich registriert
-                    })
-                    .catch(err => {
-                        // Fehlermeldung/Hinweis laut Wunsch komplett ausgeblendet, damit die Konsole sauber bleibt.
-                    });
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
             });
         }
     </script>
