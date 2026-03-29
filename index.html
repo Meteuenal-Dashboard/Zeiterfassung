@@ -43,9 +43,9 @@
             ]
         };
         
-        // Stabilere Methode für PWA Manifest in Android Chrome (ohne Blob)
-        const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-        document.write('<link rel="manifest" href="' + manifestDataUrl + '">');
+        // FIX: Zurück zur Blob-Methode, da extrem große Foto-Base64-Strings in Data-URLs von Chrome blockiert werden.
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
         
         // Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
         document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192 + '">');
@@ -641,13 +641,13 @@
               
               <header className="px-6 py-4 flex items-center justify-between no-print border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-colors duration-300">
                 <div className="flex items-center space-x-3">
-                  {/* NEU: Überprüft, ob ein eigenes Bild vorliegt. Wenn ja -> zeige es. Wenn nein -> zeige die kleine Uhr. */}
+                  {/* Überprüft, ob ein eigenes Bild vorliegt. Wenn ja -> zeige es. Wenn nein -> zeige die kleine Uhr. */}
                   {customAppIcon && !customAppIcon.startsWith('data:image/svg') ? (
                     <img src={customAppIcon} alt="App Logo" className="w-8 h-8 rounded-lg shadow-sm object-cover border border-gray-100 dark:border-gray-700" />
                   ) : (
                     <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                   )}
-                  {/* NEU: Auch der Name oben ändert sich jetzt mit */}
+                  {/* Auch der Name oben ändert sich jetzt mit */}
                   <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
                     {customAppName}
                   </h1>
@@ -688,36 +688,18 @@
         root.render(<App />);
     </script>
 
-    <!-- Service Worker Registrierung (Bedingung für echte PWA in Chrome) -->
+    <!-- FIX: Fehlerfreie Service Worker Registrierung (ohne Blob-Abstürze) -->
     <script>
         if ('serviceWorker' in navigator) {
-            // Service Worker Code wird on-the-fly generiert, damit alles in einer Datei bleibt
-            const swCode = `
-                const CACHE_NAME = 'zeiterfassung-pwa-v1';
-                self.addEventListener('install', (event) => {
-                    self.skipWaiting();
-                });
-                self.addEventListener('activate', (event) => {
-                    event.waitUntil(clients.claim());
-                });
-                self.addEventListener('fetch', (event) => {
-                    // Simpler Fetch-Listener reicht als Kriterium für Google Chrome (Offline-Fallback)
-                    event.respondWith(
-                        fetch(event.request).catch(() => new Response("Du bist offline."))
-                    );
-                });
-            `;
-            
-            const swBlob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(swBlob);
-
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register(swUrl)
+                // Blob-URLs sind für Service Worker aus Sicherheitsgründen im Browser streng verboten!
+                // Daher verweisen wir hier auf eine echte Datei. Erstelle später einfach eine leere "sw.js" auf deinem Server.
+                navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
-                        console.log('ServiceWorker registriert! (Scope: ', registration.scope, ')');
+                        // Erfolgreich registriert
                     })
                     .catch(err => {
-                        console.log('Fehler bei ServiceWorker Registrierung: ', err);
+                        // Fehlermeldung/Hinweis laut Wunsch komplett ausgeblendet, damit die Konsole sauber bleibt.
                     });
             });
         }
