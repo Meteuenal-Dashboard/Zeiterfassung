@@ -42,10 +42,12 @@
                 }
             ]
         };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
         
-        // NEU: Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
+        // Stabilere Methode für PWA Manifest in Android Chrome (ohne Blob)
+        const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+        document.write('<link rel="manifest" href="' + manifestDataUrl + '">');
+        
+        // Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
         document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192 + '">');
         document.write('<link rel="apple-touch-icon" href="' + icon192 + '">');
     </script>
@@ -568,7 +570,7 @@
                   </div>
                 </div>
 
-                {/* NEU: Visuelle Vorschau des ausgewählten Icons */}
+                {/* Visuelle Vorschau des ausgewählten Icons */}
                 <div className="space-y-2 pt-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
                   <div className="flex items-center space-x-3">
@@ -630,13 +632,25 @@
             { id: 'settings', icon: Settings, label: 'Einstellungen' },
           ];
 
+          // Lade den eigenen Namen und das Icon direkt aus dem lokalen Speicher, falls vorhanden
+          const customAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
+          const customAppIcon = localStorage.getItem('pwa_icon_192');
+
           return (
             <div className="max-w-md mx-auto h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans shadow-2xl relative overflow-hidden transition-colors duration-300">
               
               <header className="px-6 py-4 flex items-center justify-between no-print border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-colors duration-300">
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                  <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">Zeiterfassung</h1>
+                <div className="flex items-center space-x-3">
+                  {/* NEU: Überprüft, ob ein eigenes Bild vorliegt. Wenn ja -> zeige es. Wenn nein -> zeige die kleine Uhr. */}
+                  {customAppIcon && !customAppIcon.startsWith('data:image/svg') ? (
+                    <img src={customAppIcon} alt="App Logo" className="w-8 h-8 rounded-lg shadow-sm object-cover border border-gray-100 dark:border-gray-700" />
+                  ) : (
+                    <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                  {/* NEU: Auch der Name oben ändert sich jetzt mit */}
+                  <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                    {customAppName}
+                  </h1>
                 </div>
               </header>
 
@@ -674,7 +688,7 @@
         root.render(<App />);
     </script>
 
-    <!-- NEU: Service Worker Registrierung (Bedingung für echte PWA in Chrome) -->
+    <!-- Service Worker Registrierung (Bedingung für echte PWA in Chrome) -->
     <script>
         if ('serviceWorker' in navigator) {
             // Service Worker Code wird on-the-fly generiert, damit alles in einer Datei bleibt
