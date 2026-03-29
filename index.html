@@ -11,42 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Dynamisches Manifest für Eigene Icons und Namen -->
-    <script>
-        const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
-        const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
-        const savedAppIcon = localStorage.getItem('pwa_app_icon') || defaultIcon;
-
-        const manifest = {
-            "name": savedAppName,
-            "short_name": savedAppName,
-            "display": "standalone",
-            "start_url": location.pathname || ".",
-            "background_color": "#f9fafb",
-            "theme_color": "#4f46e5",
-            "icons": [
-                {
-                    "src": savedAppIcon,
-                    "sizes": "192x192",
-                    "type": savedAppIcon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": savedAppIcon,
-                    "sizes": "512x512",
-                    "type": savedAppIcon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-        
-        // Data-URI Manifest: Dauerhaft gültig, überlebt Handy-Neustarts!
-        const manifestDataUri = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-        document.write('<link rel="manifest" href="' + manifestDataUri + '">');
-    </script>
-    
-    <!-- 4. HTML-CODE: Exakte Verlinkung des neuen Manifests -->
+    <!-- EXAKTE Verlinkung des Manifests für echte WebAPK Installation (überlebt Neustart) -->
     <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -69,7 +36,7 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans fixed inset-0 overflow-hidden">
     
-    <div id="root" class="h-full w-full"></div>
+    <div id="root" class="h-full w-full bg-gray-50 dark:bg-gray-900"></div>
 
     <script type="text/babel" data-presets="react,env">
         const { useState, useEffect, useMemo } = React;
@@ -174,7 +141,7 @@
             });
           };
 
-          // NEU: Ganzen Kalendermonat / Archiv löschen
+          // Ganzen Kalendermonat / Archiv löschen
           const deleteMonthEntries = (monthString) => {
             setEntries(prevEntries => {
                 const newE = prevEntries.filter(e => !e.date.startsWith(monthString));
@@ -241,8 +208,9 @@
           const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
           const [isGenerating, setIsGenerating] = useState(false);
           
-          // State für das Archiv löschen
+          // State für das Archiv löschen und Einträge löschen
           const [confirmMonthDelete, setConfirmMonthDelete] = useState(false);
+          const [confirmEntryId, setConfirmEntryId] = useState(null);
 
           const filteredEntries = useMemo(() => {
             return entries.filter(e => e.date.startsWith(selectedMonth));
@@ -257,7 +225,7 @@
 
           const displayMonth = selectedMonth.split('-').reverse().join('.');
 
-          // Reparierte Löschfunktion für Archiv (Doppelklick-Sicherung, blockiert keine PWAs)
+          // Funktionierende Löschfunktion für das Archiv
           const handleMonthDelete = () => {
             if (filteredEntries.length === 0) return;
             if (confirmMonthDelete) {
@@ -291,7 +259,7 @@
             window.print();
           };
 
-          // Unangetasteter, funktionierender PDF/WhatsApp Code
+          // WIEDERHERGESTELLT: Die absolut funktionierende WhatsApp-PDF Export-Funktion
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -300,11 +268,9 @@
               const printArea = document.querySelector('.print-area');
               const clone = printArea.cloneNode(true);
               
-              // Versteckte Elemente sichtbar machen
               clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
               clone.querySelectorAll('.no-print').forEach(el => el.remove());
               
-              // Format erzwingen
               clone.querySelectorAll('.print-table').forEach(el => {
                   el.classList.remove('print-table');
                   el.style.display = 'table';
@@ -316,9 +282,13 @@
                   el.style.display = 'block';
               });
               
-              // Element für die PDF-Erzeugung (wird NICHT auf den Bildschirm gelegt!)
               const container = document.createElement('div');
+              container.style.position = 'absolute';
+              container.style.left = '0';
+              container.style.top = '0';
+              container.style.zIndex = '-9999';
               container.style.width = '800px'; 
+              container.style.maxWidth = '800px';
               container.style.padding = '40px';
               container.style.background = 'white';
               container.style.color = 'black';
@@ -326,11 +296,13 @@
               container.style.boxSizing = 'border-box';
               
               container.appendChild(clone);
+              document.body.appendChild(container); // Container anhängen für Rendering
+
+              await new Promise(resolve => setTimeout(resolve, 200));
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
 
-              // FORMAT UND BREITEN-STEUERUNG
               const opt = {
                 margin:       0, 
                 filename:     finalFileName,
@@ -339,13 +311,16 @@
                     scale: 2, 
                     useCORS: true, 
                     windowWidth: 800,
-                    width: 800
+                    width: 800,
+                    scrollY: 0
                 },
                 jsPDF:        { unit: 'px', format: [800, 1131], orientation: 'portrait' } 
               };
 
-              // PDF im isolierten iframe rendern (kein Eingriff in den DOM deines Handys)
-              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              // Sicherstellen, dass output('blob') verwendet wird!
+              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
+              
+              document.body.removeChild(container);
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -358,7 +333,6 @@
                 URL.revokeObjectURL(url);
               };
 
-              // Teilen aufrufen
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                   await navigator.share({
@@ -366,7 +340,6 @@
                     files: [file]
                   });
                 } catch (shareErr) {
-                  console.log("Teilen vom Nutzer abgebrochen oder blockiert.");
                   if (shareErr.name === 'NotAllowedError') {
                       downloadFallback();
                   }
@@ -394,7 +367,7 @@
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
                     />
-                    {/* Der neue Button für das Archiv Löschen */}
+                    {/* WIEDERHERGESTELLT: Button für das Archiv Löschen */}
                     <button 
                         type="button"
                         onClick={handleMonthDelete}
@@ -427,6 +400,7 @@
                 <button onClick={exportCSV} className="flex-1 flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl text-sm font-medium hover:bg-gray-200 transition active:scale-[0.98]">
                   <Download className="w-4 h-4 mr-1"/> CSV
                 </button>
+                {/* WIEDERHERGESTELLT: WhatsApp / PDF Teilen Button */}
                 <button onClick={shareViaWhatsApp} disabled={isGenerating} className={`flex-1 flex items-center justify-center p-2 text-white rounded-xl text-sm font-medium transition active:scale-[0.98] ${isGenerating ? 'bg-green-400' : 'bg-green-500 hover:bg-green-600'}`}>
                   {isGenerating ? <span className="animate-pulse">Lädt...</span> : <><Share2 className="w-4 h-4 mr-1"/> Teilen (PDF)</>}
                 </button>
@@ -435,7 +409,6 @@
               {/* List */}
               <div className="flex-1 overflow-y-auto space-y-3 pb-24 print-area">
                 <div className="hidden print-block mb-6">
-                  {/* Inline Styles sichern das Aussehen auch ohne Tailwind im PDF */}
                   <h3 className="text-2xl font-bold" style={{fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: 'black'}}>Stundenzettel</h3>
                   <p className="text-gray-600 mt-1" style={{marginBottom: '4px', color: '#4b5563', fontSize: '14px'}}>Mitarbeiter: <strong style={{color: 'black'}}>{settings.userName || '_______________'}</strong></p>
                   <p className="text-gray-600" style={{marginBottom: '20px', color: '#4b5563', fontSize: '14px'}}>Monat: <strong style={{color: 'black'}}>{displayMonth}</strong></p>
@@ -488,8 +461,22 @@
                           <p className="font-bold text-indigo-600 dark:text-indigo-400">{entry.netHours} h</p>
                           <p className="text-xs text-gray-400">{formatCurrency(entry.earned)}</p>
                         </div>
-                        <button onClick={() => deleteEntry(entry.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition opacity-100 md:opacity-0 group-hover:opacity-100">
-                          <Trash2 className="w-4 h-4" />
+                        {/* Sichere Löschen-Funktion für einzelne Einträge */}
+                        <button 
+                          type="button"
+                          onClick={() => {
+                              if (confirmEntryId === entry.id) {
+                                  deleteEntry(entry.id);
+                                  setConfirmEntryId(null);
+                              } else {
+                                  setConfirmEntryId(entry.id);
+                                  setTimeout(() => setConfirmEntryId(null), 3000);
+                              }
+                          }} 
+                          className="p-3 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition min-w-[3.5rem] flex items-center justify-center"
+                          title="Eintrag löschen"
+                        >
+                          {confirmEntryId === entry.id ? <span className="text-xs font-bold">Sicher?</span> : <Trash2 className="w-5 h-5" />}
                         </button>
                       </div>
                     </div>
@@ -501,7 +488,7 @@
         };
 
         const SettingsView = ({ settings, saveSettings }) => {
-          // 1. Automatischer Icon-Generator
+          // Unverzerrter Icon-Generator
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -510,7 +497,6 @@
             const url = URL.createObjectURL(file);
 
             img.onload = () => {
-                // Echte Bilddimensionen nutzen, um Verzerrungen zu vermeiden
                 const width = img.naturalWidth || img.width;
                 const height = img.naturalHeight || img.height;
                 const size = Math.min(width, height);
@@ -523,7 +509,6 @@
                     canvas.height = targetSize;
                     const ctx = canvas.getContext('2d');
                     
-                    // Bildglättung für scharfe, unverzerrte Ergebnisse
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
                     ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
@@ -698,7 +683,7 @@
         root.render(<App />);
     </script>
     
-    <!-- 3. HTML-CODE: Exakte Registrierung des Service Workers -->
+    <!-- 3. HTML-CODE: Exakte Registrierung des Service Workers für WebAPK Installation -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
