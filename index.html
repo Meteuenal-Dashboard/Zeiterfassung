@@ -20,20 +20,19 @@
             const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
             const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
             
-            // NEU: Lade die aktuelle Versionsnummer des Icons
             const iconUpdated = localStorage.getItem('pwa_icon_updated') || '1';
 
             const getType = (src) => {
                 if (src.startsWith('data:image/svg')) return 'image/svg+xml';
                 if (src.startsWith('data:image/webp')) return 'image/webp';
+                // FIX: Erkennung des neuen, viel kleineren JPEG-Formats hinzugefügt
+                if (src.startsWith('data:image/jpeg')) return 'image/jpeg';
                 return 'image/png';
             };
 
             const manifest = {
                 "name": savedAppName,
                 "short_name": savedAppName,
-                // FIX: "Cache-Buster" Trick! 
-                // Wir zwingen Chrome durch die wechselnde URL zu erkennen, dass ein NEUES Icon existiert und er nicht das alte laden darf.
                 "start_url": window.location.pathname + "?v=" + iconUpdated,
                 "display": "standalone",
                 "background_color": "#f9fafb",
@@ -43,32 +42,20 @@
                         "src": icon192,
                         "sizes": "192x192",
                         "type": getType(icon192),
-                        "purpose": "any"
-                    },
-                    {
-                        "src": icon192,
-                        "sizes": "192x192",
-                        "type": getType(icon192),
-                        "purpose": "maskable"
+                        "purpose": "any maskable"
                     },
                     {
                         "src": icon512,
                         "sizes": "512x512",
                         "type": getType(icon512),
-                        "purpose": "any"
-                    },
-                    {
-                        "src": icon512,
-                        "sizes": "512x512",
-                        "type": getType(icon512),
-                        "purpose": "maskable"
+                        "purpose": "any maskable"
                     }
                 ]
             };
             
-            const manifestJson = JSON.stringify(manifest);
-            const base64Manifest = btoa(unescape(encodeURIComponent(manifestJson)));
-            const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
+            // FIX: Saubere und stabile Daten-URL ohne Base64-Limits. 
+            // Dank JPEG-Format sind die Icons jetzt winzig, sodass Chrome das Manifest fehlerfrei lesen kann.
+            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
             
             const link = document.createElement('link');
             link.rel = 'manifest';
@@ -521,13 +508,14 @@
                             canvas.height = targetSize;
                             const ctx = canvas.getContext('2d');
                             
-                            // FIX: Android Launcher brauchen zwingend PNGs. 
-                            // Wir füllen den Hintergrund weiß auf, da Transparenz oft Probleme (schwarze Ränder) macht!
                             ctx.fillStyle = '#ffffff';
                             ctx.fillRect(0, 0, targetSize, targetSize);
                             ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
                             
-                            return canvas.toDataURL('image/png'); // Zurück zu PNG für maximale Kompatibilität
+                            // FIX: Wir erzwingen hier JPEG ('image/jpeg').
+                            // Dadurch sinkt die Datenmenge eines hochgeladenen Fotos von ca. 500 KB auf winzige 20 KB.
+                            // Das löst das Problem, dass Chrome große Manifest-Dateien abstürzen lässt!
+                            return canvas.toDataURL('image/jpeg', 0.85); 
                         };
 
                         const icon192 = resizeImage(192);
@@ -536,7 +524,6 @@
                         localStorage.setItem('pwa_icon_192', icon192);
                         localStorage.setItem('pwa_icon_512', icon512);
                         
-                        // NEU: Speichere den neuen Zeitstempel ab, damit Chrome gezwungen wird, die App neu zu betrachten
                         localStorage.setItem('pwa_icon_updated', Date.now().toString());
                         
                         alert('Icon wurde erfolgreich geändert!\n\nWICHTIG: Damit Chrome das neue Bild erkennt, musst du die alte App vom Homescreen löschen und diese Seite komplett neu laden, bevor du die App neu installierst!');
