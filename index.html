@@ -11,9 +11,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
-    <!-- MANIFEST VERLINKUNG (Schritt 4) -->
+    <!-- DYNAMISCHES APPLE ICON (Das Manifest muss für echte WebAPKs physisch auf dem Server liegen) -->
+    <script>
+        (function() {
+            const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+            const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+            
+            const linkApple = document.createElement('link');
+            linkApple.rel = 'apple-touch-icon';
+            linkApple.href = icon192;
+            document.head.appendChild(linkApple);
+        })();
+    </script>
+
+    <!-- EXAKT WIE GEFORDERT: Verlinkung der echten manifest.json -->
     <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192x192.png">
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -426,94 +438,118 @@
 
         const SettingsView = ({ settings, saveSettings }) => {
           const theme = settings.theme || 'indigo';
-          const [pwaName, setPwaName] = useState('Zeiterfassung');
-          const [generatedAssets, setGeneratedAssets] = useState(null);
+          const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
+          
+          const defaultIconSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+          const savedIconSrc = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIconSrc;
+
+          const [previewIcon, setPreviewIcon] = useState(savedIconSrc);
+          const [pendingIcons, setPendingIcons] = useState(null);
 
           const handleChange = (e) => {
             const { name, value } = e.target;
             saveSettings({ ...settings, [name]: name === 'hourlyRate' ? (parseFloat(value) || 0) : value });
           };
 
-          // Schritt 1: Automatischer PNG Icon Generator
-          const cropAndResize = (imgSrc, targetSize) => {
-            return new Promise((resolve) => {
-              const img = new window.Image();
-              img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = targetSize;
-                canvas.height = targetSize;
-                const ctx = canvas.getContext('2d');
-                
-                const size = Math.min(img.width, img.height);
-                const startX = (img.width - size) / 2;
-                const startY = (img.height - size) / 2;
-                
-                // Exakt zuschneiden und im PNG Format ausgeben lassen
-                ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
-                resolve(canvas.toDataURL('image/png'));
-              };
-              img.src = imgSrc;
-            });
+          const handleNameSave = () => {
+            localStorage.setItem('pwa_app_name', pwaName);
+            alert('App Name gespeichert! Bitte Seite neu laden, bevor du sie auf den Homescreen legst.');
+            window.location.reload();
           };
 
-          const handlePwaGeneration = (e) => {
+          // 1. Automatischer Icon-Generator
+          const handleIconSelect = (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const originalSrc = event.target.result;
-                    
-                    // Icons zuschneiden und PNG erstellen (192 & 512)
-                    const icon192 = await cropAndResize(originalSrc, 192);
-                    const icon512 = await cropAndResize(originalSrc, 512);
+                reader.onload = (event) => {
+                    const img = new window.Image();
+                    img.onload = () => {
+                        const size = Math.min(img.width, img.height);
+                        const startX = (img.width - size) / 2;
+                        const startY = (img.height - size) / 2;
 
-                    // Schritt 2: Die manifest.json generieren
-                    const manifestObj = {
-                        "name": pwaName,
-                        "short_name": pwaName,
-                        "display": "standalone",
-                        "start_url": "./",
-                        "background_color": settings.darkMode ? "#111827" : "#f9fafb",
-                        "theme_color": "#4f46e5",
-                        "icons": [
-                            { "src": "icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-                            { "src": "icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-                        ]
+                        const resizeImage = (targetSize) => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = targetSize;
+                            canvas.height = targetSize;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, targetSize, targetSize);
+                            
+                            ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+                            
+                            // 1. EXAKT WIE GEFORDERT: in PNG Format speichern
+                            return canvas.toDataURL('image/png');
+                        };
+
+                        const newIcon192 = resizeImage(192);
+                        const newIcon512 = resizeImage(512);
+
+                        setPreviewIcon(newIcon192); 
+                        setPendingIcons({ icon192: newIcon192, icon512: newIcon512 });
                     };
-
-                    // Schritt 3: Service Worker (sw.js) mit fetch-Listener erstellen
-                    const swCode = `// PWA Service Worker für Offline-Fähigkeit
-self.addEventListener('install', (e) => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        fetch(e.request).catch(() => new Response('Offline - Bitte Internetverbindung prüfen.'))
-    );
-});`;
-
-                    // PWA App-Icon auch direkt für das lokale UI dieser Seite abspeichern
-                    localStorage.setItem('pwa_app_name', pwaName);
-                    localStorage.setItem('pwa_app_icon', icon192);
-
-                    setGeneratedAssets({
-                        icon192, icon512, manifest: JSON.stringify(manifestObj, null, 2), sw: swCode
-                    });
+                    img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
             }
           };
 
-          const downloadDataUrl = (dataUrl, filename) => {
-            const a = document.createElement('a');
-            a.href = dataUrl; a.download = filename; 
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          const handleIconSave = () => {
+            if (!pendingIcons) return;
+            try {
+                localStorage.setItem('pwa_icon_192', pendingIcons.icon192);
+                localStorage.setItem('pwa_icon_512', pendingIcons.icon512);
+                
+                alert('Icon wurde erfolgreich gespeichert!');
+                window.location.reload();
+            } catch (err) {
+                alert('Fehler: Das Bild konnte nicht gespeichert werden.');
+            }
           };
 
-          const downloadText = (text, filename, type) => {
-            const blob = new Blob([text], { type: type + ';charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob); a.download = filename;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          // NEU: PWA Export Generator für Manifest & Service Worker
+          const handlePwaExport = () => {
+            // 2. EXAKT WIE GEFORDERT: Vollständiges Manifest erstellen
+            const manifest = {
+                "name": pwaName,
+                "short_name": pwaName,
+                "display": "standalone",
+                "start_url": "./",
+                "background_color": settings.darkMode ? "#111827" : "#f9fafb",
+                "theme_color": "#4f46e5",
+                "icons": [
+                    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+                    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+                ]
+            };
+
+            // 3. EXAKT WIE GEFORDERT: Service Worker mit fetch-Listener erstellen
+            const swCode = `self.addEventListener('install', (e) => { self.skipWaiting(); });
+self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', (e) => {
+    e.respondWith(fetch(e.request).catch(() => new Response('Du bist offline.')));
+});`;
+
+            const download = (content, filename, type) => {
+                const blob = typeof content === 'string' ? new Blob([content], {type}) : content;
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+            };
+
+            download(JSON.stringify(manifest, null, 2), 'manifest.json', 'application/json');
+            download(swCode, 'sw.js', 'application/javascript');
+
+            const icon192 = localStorage.getItem('pwa_icon_192');
+            const icon512 = localStorage.getItem('pwa_icon_512');
+            
+            if (icon192 && icon192.startsWith('data:image')) fetch(icon192).then(r=>r.blob()).then(b=>download(b, 'icon-192.png', 'image/png'));
+            if (icon512 && icon512.startsWith('data:image')) fetch(icon512).then(r=>r.blob()).then(b=>download(b, 'icon-512.png', 'image/png'));
+
+            alert('WICHTIG:\nDie 4 PWA-Dateien wurden heruntergeladen!\n\nLade nun "manifest.json", "sw.js" sowie die beiden Icons auf deinen Webserver in exakt denselben Ordner hoch, in dem auch diese index.html liegt. Danach installiert Chrome die App als echte, dauerhafte WebAPK!');
           };
 
           return (
@@ -570,42 +606,50 @@ self.addEventListener('fetch', (e) => {
                 </div>
               </div>
 
-              {/* PWA WEBAPK GENERATOR */}
-              <div className={`space-y-4 bg-${theme}-50 dark:bg-${theme}-900/20 p-6 rounded-2xl shadow-sm border border-${theme}-100 dark:border-${theme}-800/50`}>
-                <h3 className={`font-bold text-${theme}-900 dark:text-${theme}-100 flex items-center`}>PWA WebAPK Generator</h3>
-                <p className={`text-xs text-${theme}-600 dark:text-${theme}-400 leading-relaxed mb-4`}>
-                  Damit Chrome eine echte App (WebAPK) erstellt, die nicht verschwindet, müssen Konfigurationsdateien direkt auf deinem Server liegen. Lade hier ein Bild hoch – die App schneidet es automatisch perfekt quadratisch (PNG) zu und generiert dir alle benötigten Server-Dateien.
-                </p>
-
+              <div className={`space-y-4 bg-${theme}-50 dark:bg-${theme}-900/20 p-6 rounded-2xl shadow-sm border border-${theme}-100 dark:border-${theme}-800/50 mb-6`}>
+                <h3 className={`font-bold text-${theme}-900 dark:text-${theme}-100 flex items-center`}>App Personalisieren</h3>
+                
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gewünschter App-Name</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">App Name</label>
                   <div className="flex flex-col space-y-3">
                     <input 
                       type="text" value={pwaName} onChange={e => setPwaName(e.target.value)} placeholder="Mein Stundenbuch"
                       className="w-full p-3 text-base rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none" 
                     />
+                    <button type="button" onClick={handleNameSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98]`}>
+                      Namen speichern
+                    </button>
                   </div>
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><ImageLogo className="w-4 h-4 mr-2"/> App Icon hochladen & Dateien generieren</label>
-                  <label className={`flex-1 flex items-center justify-center p-4 border-2 border-dashed border-${theme}-300 dark:border-${theme}-700 rounded-xl cursor-pointer hover:bg-${theme}-100 dark:hover:bg-${theme}-800/40 transition`}>
-                      <span className={`text-sm text-${theme}-600 dark:text-${theme}-400 font-medium text-center leading-tight py-4`}>Bild auswählen<br/><span className="text-[10px] font-normal opacity-80">(wird autom. zugeschnitten)</span></span>
-                      <input type="file" accept="image/png, image/jpeg, image/webp" onClick={(e) => {e.target.value = null;}} onChange={handlePwaGeneration} className="hidden" />
-                  </label>
-                </div>
-
-                {generatedAssets && (
-                  <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/30 rounded-xl border border-green-200 dark:border-green-800/50 space-y-3 animate-in fade-in zoom-in duration-300">
-                      <p className="text-sm font-bold text-green-800 dark:text-green-300">Fertig! Lade diese 4 Dateien herunter und lade sie in den gleichen Ordner wie deine index.html hoch:</p>
-                      <div className="grid grid-cols-2 gap-2">
-                          <button onClick={() => downloadDataUrl(generatedAssets.icon192, 'icon-192x192.png')} className="p-2 text-xs bg-white dark:bg-gray-800 rounded shadow-sm text-green-700 dark:text-green-400 font-medium border border-green-100 dark:border-green-800 hover:bg-green-100 transition">1. icon-192.png</button>
-                          <button onClick={() => downloadDataUrl(generatedAssets.icon512, 'icon-512x512.png')} className="p-2 text-xs bg-white dark:bg-gray-800 rounded shadow-sm text-green-700 dark:text-green-400 font-medium border border-green-100 dark:border-green-800 hover:bg-green-100 transition">2. icon-512.png</button>
-                          <button onClick={() => downloadText(generatedAssets.manifest, 'manifest.json', 'application/json')} className="p-2 text-xs bg-white dark:bg-gray-800 rounded shadow-sm text-green-700 dark:text-green-400 font-medium border border-green-100 dark:border-green-800 hover:bg-green-100 transition">3. manifest.json</button>
-                          <button onClick={() => downloadText(generatedAssets.sw, 'sw.js', 'application/javascript')} className="p-2 text-xs bg-white dark:bg-gray-800 rounded shadow-sm text-green-700 dark:text-green-400 font-medium border border-green-100 dark:border-green-800 hover:bg-green-100 transition">4. sw.js</button>
-                      </div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><ImageLogo className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
+                  
+                  <div className="flex items-center space-x-3">
+                    <img src={previewIcon} alt="Aktuelles Icon" className={`w-16 h-16 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 object-cover shrink-0 bg-${theme}-50 dark:bg-gray-800 p-0.5`} />
+                    <label className={`flex-1 flex items-center justify-center p-4 border-2 border-dashed border-${theme}-300 dark:border-${theme}-700 rounded-xl cursor-pointer hover:bg-${theme}-100 dark:hover:bg-${theme}-800/40 transition h-16`}>
+                      <span className={`text-sm text-${theme}-600 dark:text-${theme}-400 font-medium text-center leading-tight`}>Bild auswählen<br/><span className="text-[10px] font-normal opacity-80">(wird autom. angepasst)</span></span>
+                      <input type="file" accept="image/png, image/jpeg, image/webp" onClick={(e) => {e.target.value = null;}} onChange={handleIconSelect} className="hidden" />
+                    </label>
                   </div>
-                )}
+
+                  {pendingIcons && (
+                    <button type="button" onClick={handleIconSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98] mt-2 shadow-md shadow-${theme}-600/30 flex justify-center items-center`}>
+                      <CheckCircle2 className="w-5 h-5 mr-2" /> Bild speichern
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* NEU: PWA Generator Button */}
+              <div className="space-y-4 bg-green-50 dark:bg-green-900/20 p-6 rounded-2xl shadow-sm border border-green-200 dark:border-green-800/50">
+                <h3 className="font-bold text-green-900 dark:text-green-100 flex items-center">WebAPK Installations-Dateien</h3>
+                <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed mb-4">
+                  Damit Chrome die App als vollwertige, dauerhafte WebAPK installiert, benötigt dein Server 4 echte Dateien. Lade Bild & Name hoch und klicke dann hier:
+                </p>
+                <button type="button" onClick={handlePwaExport} className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition active:scale-[0.98] shadow-md shadow-green-600/30 flex justify-center items-center">
+                  <Download className="w-5 h-5 mr-2" /> 4 PWA Dateien generieren
+                </button>
               </div>
 
             </div>
@@ -661,7 +705,7 @@ self.addEventListener('fetch', (e) => {
           ];
 
           const customAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
-          const customAppIcon = localStorage.getItem('pwa_app_icon');
+          const customAppIcon = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon');
 
           return (
             <div className="max-w-md mx-auto h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans shadow-2xl relative overflow-hidden transition-colors duration-300">
@@ -720,7 +764,7 @@ self.addEventListener('fetch', (e) => {
         root.render(<App />);
     </script>
 
-    <!-- SERVICE WORKER REGISTRIERUNG (Schritt 4) -->
+    <!-- 4. EXAKT WIE GEFORDERT: Echte Registrierung des Service Workers vor dem body-Tag -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -729,7 +773,7 @@ self.addEventListener('fetch', (e) => {
                         console.log('ServiceWorker registriert! Scope:', registration.scope);
                     })
                     .catch(error => {
-                        console.warn('ServiceWorker Registrierung fehlgeschlagen.', error);
+                        console.warn('ServiceWorker Registrierung fehlgeschlagen. Stelle sicher, dass die "sw.js" auf deinem Server liegt!', error);
                     });
             });
         }
