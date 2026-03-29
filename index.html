@@ -24,7 +24,7 @@
                 "name": savedAppName,
                 "short_name": savedAppName,
                 "display": "standalone",
-                "start_url": location.pathname || ".",
+                "start_url": window.location.href.split('#')[0], // Absolut stabile URL für dauerhafte Installation
                 "background_color": "#f9fafb",
                 "theme_color": "#4f46e5",
                 "icons": [
@@ -525,7 +525,7 @@
                             "name": pwaName,
                             "short_name": pwaName,
                             "display": "standalone",
-                            "start_url": location.pathname || ".",
+                            "start_url": window.location.href.split('#')[0],
                             "background_color": settings.darkMode ? "#111827" : "#f9fafb",
                             "theme_color": "#4f46e5",
                             "icons": [
@@ -782,38 +782,6 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-    </script>
-
-    <!-- DYNAMISCHER SERVICE WORKER (Vollautomatisch aus dem Speicher) -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                const swCode = `
-                    self.addEventListener('install', (e) => {
-                        self.skipWaiting();
-                    });
-                    self.addEventListener('activate', (e) => {
-                        e.waitUntil(self.clients.claim());
-                    });
-                    self.addEventListener('fetch', (e) => {
-                        e.respondWith(
-                            fetch(e.request).catch(() => new Response('Offline.'))
-                        );
-                    });
-                `;
-                
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(registration => {
-                        console.log('Single-File ServiceWorker registriert!');
-                    })
-                    .catch(error => {
-                        console.warn('ServiceWorker Registrierung fehlgeschlagen.', error);
-                    });
-            });
-        }
     </script>
 </body>
 </html>
