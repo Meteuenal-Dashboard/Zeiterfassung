@@ -140,16 +140,12 @@
             if (savedSettings) setSettings(savedSettings);
           }, []);
 
-          const saveEntries = (newEntries) => {
-            setEntries(newEntries);
-            localStorage.setItem('time_entries', JSON.stringify(newEntries));
-          };
-
           const saveSettings = (newSettings) => {
             setSettings(newSettings);
             localStorage.setItem('time_settings', JSON.stringify(newSettings));
           };
 
+          // Sicherer State-Update für Hinzufügen
           const addManualEntry = (entry) => {
             const { netHours } = calculateDuration(entry.startTime, entry.endTime);
             const newEntry = {
@@ -158,16 +154,29 @@
               netHours: parseFloat(netHours),
               earned: parseFloat(netHours) * settings.hourlyRate
             };
-            saveEntries([newEntry, ...entries].sort((a, b) => new Date(b.date) - new Date(a.date)));
+            setEntries(prevEntries => {
+                const newE = [newEntry, ...prevEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
+          // Sicherer State-Update für einzelnes Löschen
           const deleteEntry = (id) => {
-            saveEntries(entries.filter(e => e.id !== id));
+            setEntries(prevEntries => {
+                const newE = prevEntries.filter(e => e.id !== id);
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
-          // NEU: Ganzen Kalendermonat / Archiv löschen
+          // Sicherer State-Update für ganzen Kalendermonat / Archiv löschen
           const deleteMonthEntries = (monthString) => {
-            saveEntries(entries.filter(e => !e.date.startsWith(monthString)));
+            setEntries(prevEntries => {
+                const newE = prevEntries.filter(e => !e.date.startsWith(monthString));
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
           return {
@@ -270,6 +279,7 @@
             window.print();
           };
 
+          // Zuverlässiges Generieren der PDF via WhatsApp Share API
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -374,7 +384,6 @@
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
                     />
-                    {/* NEU: Button zum Löschen des gesamten Archiv-Monats */}
                     <button 
                         onClick={handleMonthDelete}
                         disabled={filteredEntries.length === 0}
@@ -500,7 +509,6 @@
             window.location.reload();
           };
 
-          // NEU: Automatischer intelligenter Bild-Zuschneider
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -509,7 +517,6 @@
             const url = URL.createObjectURL(file);
 
             img.onload = () => {
-                // 1. Automatisch quadratisch aus der Mitte zuschneiden
                 const size = Math.min(img.width, img.height);
                 const startX = (img.width - size) / 2;
                 const startY = (img.height - size) / 2;
@@ -525,7 +532,6 @@
                     });
                 };
 
-                // 2. Erstellt sofort die beiden Pflichtgrößen und speichert sie lokal
                 Promise.all([generateBase64(192), generateBase64(512)]).then(([icon192, icon512]) => {
                     localStorage.setItem('pwa_icon_192', icon192);
                     localStorage.setItem('pwa_icon_512', icon512);
@@ -575,7 +581,7 @@
                 </div>
               </div>
 
-              {/* App Personalisieren (komplett automatisiert im Browser) */}
+              {/* App Personalisieren */}
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
