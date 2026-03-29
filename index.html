@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zeiterfassung</title>
     
+    <!-- PWA / App-Modus Einstellungen -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
+    <!-- DEIN ORIGINALER MANIFEST CODE (nur mit den zugeschnittenen Bild-Variablen verknüpft) -->
     <script>
         const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
         const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
         
-        const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
-        const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
+        // Wir laden die zugeschnittenen Bilder oder greifen auf das Original zurück
+        const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+        const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
 
         const manifest = {
             "name": savedAppName,
@@ -39,13 +42,13 @@
                 }
             ]
         };
+        
+        // Exakt deine originale Methode!
         const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
         document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
-        
-        // Wichtig für iPhones
-        document.write('<link rel="apple-touch-icon" href="' + icon192 + '">');
     </script>
     
+    <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -53,11 +56,14 @@
         }
     </script>
 
+    <!-- React & ReactDOM -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
     
+    <!-- Babel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js" crossorigin="anonymous"></script>
     
+    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 
@@ -68,6 +74,7 @@
     <script type="text/babel" data-presets="react,env">
         const { useState, useEffect, useMemo } = React;
 
+        // Globale Liste mit 22 Tailwind-Farben für die Designs
         const tailwindColors = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'];
 
         // ==========================================
@@ -454,7 +461,7 @@
           const theme = settings.theme || 'indigo';
           const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
           
-          const currentIconSrc = localStorage.getItem('pwa_icon_192') || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+          const currentIconSrc = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
 
           const handleChange = (e) => {
             const { name, value } = e.target;
@@ -467,7 +474,7 @@
             window.location.reload();
           };
 
-          // Hier ist der einfache, originale Zuschnitt-Code für dein Bild
+          // Hier ist das einfache, funktionierende Quadrat-Skript zum Bild hochladen
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -479,19 +486,19 @@
                         const startX = (img.width - size) / 2;
                         const startY = (img.height - size) / 2;
 
-                        const resize = (target) => {
+                        const resizeImage = (targetSize) => {
                             const canvas = document.createElement('canvas');
-                            canvas.width = target;
-                            canvas.height = target;
+                            canvas.width = targetSize;
+                            canvas.height = targetSize;
                             const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, startX, startY, size, size, 0, 0, target, target);
+                            ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
                             return canvas.toDataURL('image/png');
                         };
 
-                        localStorage.setItem('pwa_icon_192', resize(192));
-                        localStorage.setItem('pwa_icon_512', resize(512));
+                        localStorage.setItem('pwa_icon_192', resizeImage(192));
+                        localStorage.setItem('pwa_icon_512', resizeImage(512));
                         
-                        alert('Bild gespeichert! Lade die Seite nun neu und klicke auf "Zum Startbildschirm hinzufügen".');
+                        alert('Icon wurde erfolgreich geändert!\n\nBitte lade die Seite neu und klicke auf "Zum Startbildschirm hinzufügen".');
                         window.location.reload();
                     };
                     img.src = event.target.result;
@@ -697,6 +704,7 @@
         root.render(<App />);
     </script>
 
+    <!-- Einfacher Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
