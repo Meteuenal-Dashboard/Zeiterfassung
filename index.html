@@ -44,6 +44,10 @@
         };
         const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
         document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
+        
+        // NEU: Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
+        document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192 + '">');
+        document.write('<link rel="apple-touch-icon" href="' + icon192 + '">');
     </script>
     
     <!-- Tailwind CSS (Design) -->
@@ -449,6 +453,9 @@
 
         const SettingsView = ({ settings, saveSettings }) => {
           const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
+          
+          // NEU: Lade das gespeicherte Icon oder nutze das Standard-Icon für die Vorschau in den Einstellungen
+          const currentIconSrc = localStorage.getItem('pwa_icon_192') || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
 
           const handleChange = (e) => {
             const { name, value } = e.target;
@@ -461,7 +468,7 @@
             window.location.reload();
           };
 
-          // NEU: Automatischer Bildzuschnitt für PWA Icons (192x192 & 512x512)
+          // Automatischer Bildzuschnitt für PWA Icons (192x192 & 512x512)
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -493,7 +500,7 @@
                         localStorage.setItem('pwa_icon_192', icon192);
                         localStorage.setItem('pwa_icon_512', icon512);
                         
-                        alert('Icon wurde automatisch quadratisch zugeschnitten und optimiert! Bitte lade die Seite einmal neu, bevor du sie auf dem Homescreen speicherst.');
+                        alert('Icon wurde erfolgreich geändert! Bitte lade die Seite einmal neu.');
                         window.location.reload();
                     };
                     img.src = event.target.result;
@@ -545,7 +552,7 @@
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
                 <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
-                  Wichtig: Stelle Namen und Bild ein, <b>bevor</b> du die Webseite als App auf dem Homescreen installierst! (Wenn schon installiert: App löschen, hier einstellen, neu installieren). Das Bild wird von uns automatisch passend zugeschnitten.
+                  Wichtig: Stelle Namen und Bild ein, <b>bevor</b> du die Webseite als App auf dem Homescreen installierst! (Wenn die App schon auf dem Homescreen ist, lösche sie kurz und füge sie danach wieder hinzu).
                 </p>
 
                 <div className="space-y-2">
@@ -561,12 +568,16 @@
                   </div>
                 </div>
 
+                {/* NEU: Visuelle Vorschau des ausgewählten Icons */}
                 <div className="space-y-2 pt-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
-                  <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition">
-                    <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Bild auswählen (wird autom. quadratisch)</span>
-                    <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleIconUpload} className="hidden" />
-                  </label>
+                  <div className="flex items-center space-x-3">
+                    <img src={currentIconSrc} alt="Aktuelles Icon" className="w-16 h-16 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 object-cover shrink-0 bg-indigo-50 dark:bg-gray-800 p-0.5" />
+                    <label className="flex-1 flex items-center justify-center p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition h-16">
+                      <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium text-center leading-tight">Bild ändern<br/><span className="text-[10px] font-normal opacity-80">(wird autom. quadratisch)</span></span>
+                      <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleIconUpload} className="hidden" />
+                    </label>
+                  </div>
                 </div>
               </div>
 
