@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
-    <!-- DYNAMISCHES MANIFEST & ICONS (Vollautomatisch, für echte WebAPK-Anerkennung) -->
+    <!-- DYNAMISCHES MANIFEST & ICONS (Vollautomatisch, stabil für dauerhafte Installation) -->
     <script>
         (function() {
             const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
@@ -20,11 +20,14 @@
             const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
             const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
 
+            // FIX: Absolut stabile Start-URL, die garantiert, dass die App beim Anklicken immer öffnet
+            const startUrl = window.location.pathname + window.location.search;
+
             const manifest = {
                 "name": savedAppName,
                 "short_name": savedAppName,
                 "display": "standalone",
-                "start_url": window.location.href.split('#')[0], // Absolut stabile URL für dauerhafte Installation
+                "start_url": startUrl,
                 "background_color": "#f9fafb",
                 "theme_color": "#4f46e5",
                 "icons": [
@@ -525,7 +528,7 @@
                             "name": pwaName,
                             "short_name": pwaName,
                             "display": "standalone",
-                            "start_url": window.location.href.split('#')[0],
+                            "start_url": window.location.pathname + window.location.search,
                             "background_color": settings.darkMode ? "#111827" : "#f9fafb",
                             "theme_color": "#4f46e5",
                             "icons": [
@@ -782,6 +785,30 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+    </script>
+
+    <!-- SERVICE WORKER CLEANUP (Behebt den Absturz nach dem Neustart!) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // WICHTIG: Löscht den alten "Blob"-ServiceWorker.
+                // Dieser temporäre Worker hat nach dem Neustart auf einen geleerten Arbeitsspeicher verwiesen
+                // und so den Start der App blockiert. Wir löschen ihn hier automatisch aus dem Handy.
+                try {
+                    navigator.serviceWorker.getRegistrations()
+                        .then(function(registrations) {
+                            for(let registration of registrations) {
+                                registration.unregister();
+                            }
+                        })
+                        .catch(function(err) {
+                            console.warn('Fehler beim Abrufen der Service Worker Registrierungen (InvalidState):', err);
+                        });
+                } catch (e) {
+                    console.warn('Zugriff auf Service Worker blockiert:', e);
+                }
+            });
+        }
     </script>
 </body>
 </html>
