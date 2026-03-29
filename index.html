@@ -20,23 +20,43 @@
         const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
         const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
 
+        // FIX: Umgehe Chrome-Längenlimits für Data-URLs im Manifest, indem wir sie in saubere Blob-URLs umwandeln
+        function createBlobUrl(dataUri) {
+            if (dataUri.startsWith('data:image/svg')) return dataUri; // SVGs bleiben unberührt
+            try {
+                const arr = dataUri.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while(n--){
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return URL.createObjectURL(new Blob([u8arr], {type: mime}));
+            } catch(e) {
+                return dataUri;
+            }
+        }
+
+        const icon192BlobUrl = createBlobUrl(icon192);
+        const icon512BlobUrl = createBlobUrl(icon512);
+
         const manifest = {
             "name": savedAppName,
             "short_name": savedAppName,
             "display": "standalone",
-            // FIX: Absolute URL ist zwingend erforderlich, damit Chrome das dynamische Manifest korrekt auflöst!
             "start_url": window.location.origin + window.location.pathname,
             "background_color": "#f9fafb",
             "theme_color": "#4f46e5",
             "icons": [
                 {
-                    "src": icon192,
+                    "src": icon192BlobUrl,
                     "sizes": "192x192",
                     "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
                     "purpose": "any maskable"
                 },
                 {
-                    "src": icon512,
+                    "src": icon512BlobUrl,
                     "sizes": "512x512",
                     "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
                     "purpose": "any maskable"
@@ -44,13 +64,14 @@
             ]
         };
         
-        // FIX: Nutze Base64-Codierung, um das Manifest 100% sicher und fehlerfrei an Chrome zu übergeben
-        const base64Manifest = btoa(unescape(encodeURIComponent(JSON.stringify(manifest))));
-        const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
-        document.write('<link rel="manifest" href="' + manifestDataUrl + '">');
+        // Das Manifest selbst wird als saubere Blob-URL bereitgestellt, was Chrome zuverlässig ausliest
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
         
-        // Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
-        document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192 + '">');
+        // Setze das Icon auch als Favicon
+        document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192BlobUrl + '">');
+        
+        // Apple Touch Icon nutzt weiterhin Base64, da Safari temporäre Blob-URLs beim Hinzufügen manchmal verwirft
         document.write('<link rel="apple-touch-icon" href="' + icon192 + '">');
     </script>
     
