@@ -31,13 +31,13 @@
                 {
                     "src": icon192,
                     "sizes": "192x192",
-                    "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                    "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : (icon192.startsWith('data:image/jpeg') ? "image/jpeg" : "image/png"),
                     "purpose": "any maskable"
                 },
                 {
                     "src": icon512,
                     "sizes": "512x512",
-                    "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                    "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : (icon512.startsWith('data:image/jpeg') ? "image/jpeg" : "image/png"),
                     "purpose": "any maskable"
                 }
             ]
@@ -464,9 +464,8 @@
           const defaultIconSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
           const savedIconSrc = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIconSrc;
 
-          // Status für die Live-Vorschau und die Datei, die darauf wartet, gespeichert zu werden
           const [previewIcon, setPreviewIcon] = useState(savedIconSrc);
-          const [pendingImageFile, setPendingImageFile] = useState(null);
+          const [pendingIcons, setPendingIcons] = useState(null);
 
           const handleChange = (e) => {
             const { name, value } = e.target;
@@ -479,62 +478,59 @@
             window.location.reload();
           };
 
-          // 1. Schritt: Nur Datei auswählen und sofortige Vorschau anzeigen (ohne Speichern oder Reload)
+          // Schritt 1: Bild laden, verzerrungsfrei (als Quadrat) zuschneiden und als Vorschau bereitlegen
           const handleIconSelect = (e) => {
             const file = e.target.files[0];
             if (file) {
-                setPendingImageFile(file);
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    setPreviewIcon(event.target.result);
+                    const img = new window.Image();
+                    img.onload = () => {
+                        const size = Math.min(img.width, img.height);
+                        const startX = (img.width - size) / 2;
+                        const startY = (img.height - size) / 2;
+
+                        const resizeImage = (targetSize) => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = targetSize;
+                            canvas.height = targetSize;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, targetSize, targetSize);
+                            
+                            // Bild wird exakt in der Mitte proportional (ohne Verzerrung) ausgeschnitten
+                            ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+                            
+                            // Nutze leicht komprimiertes JPEG, damit der Speicher bei Fotos nicht platzt
+                            return canvas.toDataURL('image/jpeg', 0.9);
+                        };
+
+                        const icon192 = resizeImage(192);
+                        const icon512 = resizeImage(512);
+
+                        setPreviewIcon(icon192); // Sofortige Vorschau in der App
+                        setPendingIcons({ icon192, icon512 });
+                    };
+                    img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
             }
           };
 
-          // 2. Schritt: Bestätigen, quadratisch perfekt zuschneiden (ohne Verzerrung) und speichern
+          // Schritt 2: Den fertigen Zuschnitt bestätigen und speichern
           const handleIconSave = () => {
-            if (!pendingImageFile) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new window.Image();
-                img.onload = () => {
-                    // Perfekter Crop (Schnitt): Wir nehmen genau die Mitte des Bildes in quadratischer Form.
-                    // Das verhindert jede Art von Dehnung oder Verzerrung des Originalbildes.
-                    const size = Math.min(img.width, img.height);
-                    const startX = (img.width - size) / 2;
-                    const startY = (img.height - size) / 2;
-
-                    const resizeImage = (targetSize) => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = targetSize;
-                        canvas.height = targetSize;
-                        const ctx = canvas.getContext('2d');
-                        
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, targetSize, targetSize);
-                        
-                        // Hier wird genau das Quadrat (size x size) aus der Mitte genommen 
-                        // und auf das Ziel (targetSize x targetSize) kopiert. -> Keine Verzerrung!
-                        ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
-                        
-                        return canvas.toDataURL('image/png');
-                    };
-
-                    try {
-                        localStorage.setItem('pwa_icon_192', resizeImage(192));
-                        localStorage.setItem('pwa_icon_512', resizeImage(512));
-                        localStorage.setItem('pwa_icon_updated', Date.now().toString());
-                        
-                        alert('Icon wurde erfolgreich gespeichert!\n\nBitte lade die Seite neu und klicke dann auf "Zum Startbildschirm hinzufügen".');
-                        window.location.reload();
-                    } catch (err) {
-                        alert('Fehler: Das Bild konnte nicht gespeichert werden.');
-                    }
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(pendingImageFile);
+            if (!pendingIcons) return;
+            try {
+                localStorage.setItem('pwa_icon_192', pendingIcons.icon192);
+                localStorage.setItem('pwa_icon_512', pendingIcons.icon512);
+                localStorage.setItem('pwa_icon_updated', Date.now().toString());
+                
+                alert('Icon wurde erfolgreich gespeichert!\n\nBitte lade die Seite neu und klicke dann auf "Zum Startbildschirm hinzufügen".');
+                window.location.reload();
+            } catch (err) {
+                alert('Fehler: Das Bild konnte nicht gespeichert werden. Eventuell ist es immer noch zu groß.');
+            }
           };
 
           return (
@@ -604,7 +600,7 @@
                       type="text" value={pwaName} onChange={e => setPwaName(e.target.value)} placeholder="Mein Stundenbuch"
                       className="w-full p-3 text-base rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none" 
                     />
-                    <button onClick={handleNameSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98]`}>
+                    <button type="button" onClick={handleNameSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98]`}>
                       Namen speichern
                     </button>
                   </div>
@@ -623,8 +619,8 @@
                   </div>
 
                   {/* Neuer Speichern-Button: Erscheint nur, wenn ein neues Bild ausgewählt wurde */}
-                  {pendingImageFile && (
-                    <button onClick={handleIconSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98] mt-2 shadow-md shadow-${theme}-600/30 flex justify-center items-center`}>
+                  {pendingIcons && (
+                    <button type="button" onClick={handleIconSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98] mt-2 shadow-md shadow-${theme}-600/30 flex justify-center items-center`}>
                       <CheckCircle2 className="w-5 h-5 mr-2" /> Bild speichern & anwenden
                     </button>
                   )}
