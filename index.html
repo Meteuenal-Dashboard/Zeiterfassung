@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- 4. HTML-CODE: Exakte Verlinkung des neuen Manifests -->
+    <!-- 4. HTML-CODE: Exakte Verlinkung des echten Manifests für echte WebAPK Installation -->
     <link rel="manifest" href="./manifest.json">
     
     <!-- Tailwind CSS (Design) -->
@@ -125,16 +125,27 @@
               netHours: parseFloat(netHours),
               earned: parseFloat(netHours) * settings.hourlyRate
             };
-            saveEntries([newEntry, ...entries].sort((a, b) => new Date(b.date) - new Date(a.date)));
+            setEntries(prevEntries => {
+                const newE = [newEntry, ...prevEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
           const deleteEntry = (id) => {
-            saveEntries(entries.filter(e => e.id !== id));
+            setEntries(prevEntries => {
+                const newE = prevEntries.filter(e => e.id !== id);
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
-          // NEU: Ganzen Kalendermonat / Archiv löschen
           const deleteMonthEntries = (monthString) => {
-            saveEntries(entries.filter(e => !e.date.startsWith(monthString)));
+            setEntries(prevEntries => {
+                const newE = prevEntries.filter(e => !e.date.startsWith(monthString));
+                localStorage.setItem('time_entries', JSON.stringify(newE));
+                return newE;
+            });
           };
 
           return {
@@ -195,7 +206,6 @@
           const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
           const [isGenerating, setIsGenerating] = useState(false);
           
-          // State für das Archiv löschen
           const [confirmMonthDelete, setConfirmMonthDelete] = useState(false);
 
           const filteredEntries = useMemo(() => {
@@ -211,7 +221,6 @@
 
           const displayMonth = selectedMonth.split('-').reverse().join('.');
 
-          // Reparierte Löschfunktion für Archiv (Doppelklick-Sicherung, blockiert keine PWAs)
           const handleMonthDelete = () => {
             if (filteredEntries.length === 0) return;
             if (confirmMonthDelete) {
@@ -245,7 +254,7 @@
             window.print();
           };
 
-          // Unangetasteter, funktionierender PDF/WhatsApp Code
+          // Funktionierender PDF/WhatsApp Code
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -254,11 +263,9 @@
               const printArea = document.querySelector('.print-area');
               const clone = printArea.cloneNode(true);
               
-              // Versteckte Elemente sichtbar machen
               clone.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
               clone.querySelectorAll('.no-print').forEach(el => el.remove());
               
-              // Format erzwingen
               clone.querySelectorAll('.print-table').forEach(el => {
                   el.classList.remove('print-table');
                   el.style.display = 'table';
@@ -270,9 +277,13 @@
                   el.style.display = 'block';
               });
               
-              // Element für die PDF-Erzeugung (wird NICHT auf den Bildschirm gelegt!)
               const container = document.createElement('div');
+              container.style.position = 'absolute';
+              container.style.left = '0';
+              container.style.top = '0';
+              container.style.zIndex = '-9999';
               container.style.width = '800px'; 
+              container.style.maxWidth = '800px';
               container.style.padding = '40px';
               container.style.background = 'white';
               container.style.color = 'black';
@@ -280,11 +291,11 @@
               container.style.boxSizing = 'border-box';
               
               container.appendChild(clone);
+              document.body.appendChild(container);
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
 
-              // FORMAT UND BREITEN-STEUERUNG
               const opt = {
                 margin:       0, 
                 filename:     finalFileName,
@@ -293,13 +304,15 @@
                     scale: 2, 
                     useCORS: true, 
                     windowWidth: 800,
-                    width: 800
+                    width: 800,
+                    scrollY: 0
                 },
                 jsPDF:        { unit: 'px', format: [800, 1131], orientation: 'portrait' } 
               };
 
-              // PDF im isolierten iframe rendern (kein Eingriff in den DOM deines Handys)
               const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              
+              document.body.removeChild(container);
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -312,7 +325,6 @@
                 URL.revokeObjectURL(url);
               };
 
-              // Teilen aufrufen
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                   await navigator.share({
@@ -320,7 +332,6 @@
                     files: [file]
                   });
                 } catch (shareErr) {
-                  console.log("Teilen vom Nutzer abgebrochen oder blockiert.");
                   if (shareErr.name === 'NotAllowedError') {
                       downloadFallback();
                   }
@@ -348,7 +359,6 @@
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
                     />
-                    {/* Der neue Button für das Archiv Löschen */}
                     <button 
                         type="button"
                         onClick={handleMonthDelete}
@@ -389,7 +399,6 @@
               {/* List */}
               <div className="flex-1 overflow-y-auto space-y-3 pb-24 print-area">
                 <div className="hidden print-block mb-6">
-                  {/* Inline Styles sichern das Aussehen auch ohne Tailwind im PDF */}
                   <h3 className="text-2xl font-bold" style={{fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: 'black'}}>Stundenzettel</h3>
                   <p className="text-gray-600 mt-1" style={{marginBottom: '4px', color: '#4b5563', fontSize: '14px'}}>Mitarbeiter: <strong style={{color: 'black'}}>{settings.userName || '_______________'}</strong></p>
                   <p className="text-gray-600" style={{marginBottom: '20px', color: '#4b5563', fontSize: '14px'}}>Monat: <strong style={{color: 'black'}}>{displayMonth}</strong></p>
@@ -455,7 +464,20 @@
         };
 
         const SettingsView = ({ settings, saveSettings }) => {
-          // 1. Automatischer Icon-Generator
+          const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
+
+          const handleChange = (e) => {
+            const { name, value } = e.target;
+            saveSettings({ ...settings, [name]: name === 'hourlyRate' ? (parseFloat(value) || 0) : value });
+          };
+
+          const handleNameSave = () => {
+            localStorage.setItem('pwa_app_name', pwaName);
+            alert('App Name gespeichert! Lade die Seite neu und installiere die App auf deinem Homescreen.');
+            window.location.reload();
+          };
+
+          // NEU GEÄNDERT: Behebt das Problem der verzerrten Bilder durch Verwenden der echten Bilddimensionen
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -464,39 +486,38 @@
             const url = URL.createObjectURL(file);
 
             img.onload = () => {
-                const size = Math.min(img.width, img.height);
-                const startX = (img.width - size) / 2;
-                const startY = (img.height - size) / 2;
+                // Korrekte Proportionen auslesen
+                const width = img.naturalWidth || img.width;
+                const height = img.naturalHeight || img.height;
+                const size = Math.min(width, height);
+                const startX = (width - size) / 2;
+                const startY = (height - size) / 2;
 
-                const exportSizedIcon = (targetSize) => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = targetSize;
-                    canvas.height = targetSize;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
-                    
-                    canvas.toBlob((blob) => {
-                        const downloadLink = document.createElement('a');
-                        downloadLink.href = URL.createObjectURL(blob);
-                        downloadLink.download = `icon-${targetSize}.png`;
-                        document.body.appendChild(downloadLink);
-                        downloadLink.click();
-                        document.body.removeChild(downloadLink);
-                    }, 'image/png');
+                const generateBase64 = (targetSize) => {
+                    return new Promise((resolve) => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = targetSize;
+                        canvas.height = targetSize;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Glättung für höchste Qualität
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
+                        // Zeichnet das Bild absolut quadratisch aus der Mitte heraus
+                        ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+                        resolve(canvas.toDataURL('image/png'));
+                    });
                 };
 
-                exportSizedIcon(192);
-                exportSizedIcon(512);
-
-                alert('Bilder wurden zugeschnitten und heruntergeladen! Bitte lade icon-192.png und icon-512.png auf GitHub hoch.');
-                URL.revokeObjectURL(url);
+                Promise.all([generateBase64(192), generateBase64(512)]).then(([icon192, icon512]) => {
+                    localStorage.setItem('pwa_icon_192', icon192);
+                    localStorage.setItem('pwa_icon_512', icon512);
+                    alert('Dein App-Bild wurde erfolgreich verarbeitet und gespeichert! Die Seite lädt jetzt neu. Füge sie danach zum Startbildschirm hinzu.');
+                    window.location.reload();
+                });
             };
             img.src = url;
-          };
-
-          const handleChange = (e) => {
-            const { name, value } = e.target;
-            saveSettings({ ...settings, [name]: name === 'hourlyRate' ? (parseFloat(value) || 0) : value });
           };
 
           return (
@@ -538,15 +559,30 @@
                 </div>
               </div>
 
-              {/* App Personalisieren Upload */}
+              {/* App Personalisieren */}
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Icon Generator</h3>
+                <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
-                  Lade ein Bild hoch. Die App schneidet es automatisch quadratisch zu und lädt dir die benötigten Dateien (icon-192.png und icon-512.png) herunter.
+                  Stelle Name und Bild ein. Danach <b>lösche</b> deine alte App vom Handy, lade die Seite im Browser neu und tippe auf "Zum Startbildschirm hinzufügen".
                 </p>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">App Name</label>
+                  <div className="flex space-x-2">
+                    <input 
+                      type="text" value={pwaName} onChange={e => setPwaName(e.target.value)} placeholder="Mein Stundenbuch"
+                      className="flex-1 p-3 text-base rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none" 
+                    />
+                    <button onClick={handleNameSave} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl font-medium transition active:scale-[0.98]">
+                      Speichern
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
                   <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition bg-white dark:bg-gray-800">
-                    <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium flex items-center"><Image className="w-4 h-4 mr-2"/>Bild auswählen & zuschneiden</span>
+                    <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Bild auswählen (wird automatisch zugeschnitten)</span>
                     <input type="file" accept="image/*" onChange={handleIconUpload} className="hidden" />
                   </label>
                 </div>
@@ -645,7 +681,7 @@
         root.render(<App />);
     </script>
     
-    <!-- 3. HTML-CODE: Exakte Registrierung des Service Workers -->
+    <!-- 3. HTML-CODE: Exakte Registrierung des Service Workers für WebAPK persistenz -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
