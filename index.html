@@ -24,7 +24,8 @@
             "name": savedAppName,
             "short_name": savedAppName,
             "display": "standalone",
-            "start_url": location.pathname || ".",
+            // FIX: Absolute URL ist zwingend erforderlich, damit Chrome das dynamische Manifest korrekt auflöst!
+            "start_url": window.location.origin + window.location.pathname,
             "background_color": "#f9fafb",
             "theme_color": "#4f46e5",
             "icons": [
@@ -43,9 +44,10 @@
             ]
         };
         
-        // FIX: Zurück zur Blob-Methode, da extrem große Foto-Base64-Strings in Data-URLs von Chrome blockiert werden.
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
+        // FIX: Nutze Base64-Codierung, um das Manifest 100% sicher und fehlerfrei an Chrome zu übergeben
+        const base64Manifest = btoa(unescape(encodeURIComponent(JSON.stringify(manifest))));
+        const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
+        document.write('<link rel="manifest" href="' + manifestDataUrl + '">');
         
         // Setze das Icon auch als Favicon und Apple-Touch-Icon, damit es vom System (iOS/Android) direkt übernommen wird
         document.write('<link rel="icon" type="' + (icon192.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png') + '" href="' + icon192 + '">');
