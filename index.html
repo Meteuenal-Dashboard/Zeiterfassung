@@ -17,9 +17,11 @@
             const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
             const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
             
-            // Wir laden das Icon. Es wird in den Einstellungen nun immer zwingend als 192x192 PNG gespeichert.
-            const appIcon = localStorage.getItem('pwa_icon_192') || defaultIcon;
+            const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
+            const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
             const iconUpdated = localStorage.getItem('pwa_icon_updated') || '1';
+
+            const getType = (src) => src.startsWith('data:image/svg') ? 'image/svg+xml' : 'image/png';
 
             const manifest = {
                 "name": savedAppName,
@@ -30,18 +32,22 @@
                 "theme_color": "#4f46e5",
                 "icons": [
                     {
-                        "src": appIcon,
+                        "src": icon192,
                         "sizes": "192x192",
-                        "type": appIcon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "type": getType(icon192),
+                        "purpose": "any maskable"
+                    },
+                    {
+                        "src": icon512,
+                        "sizes": "512x512",
+                        "type": getType(icon512),
                         "purpose": "any maskable"
                     }
                 ]
             };
             
-            // Sicheres Einbinden des Manifests in Base64 (verhindert Abstürze beim Installieren)
-            const manifestJson = JSON.stringify(manifest);
-            const base64Manifest = btoa(unescape(encodeURIComponent(manifestJson)));
-            const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
+            // Sicheres Einbinden des Manifests (verhindert Abstürze beim Installieren)
+            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
             
             const link = document.createElement('link');
             link.rel = 'manifest';
@@ -50,12 +56,12 @@
 
             const appleLink = document.createElement('link');
             appleLink.rel = 'apple-touch-icon';
-            appleLink.href = appIcon;
+            appleLink.href = icon192;
             document.head.appendChild(appleLink);
             
             const iconLink = document.createElement('link');
             iconLink.rel = 'icon';
-            iconLink.href = appIcon;
+            iconLink.href = icon192;
             document.head.appendChild(iconLink);
         })();
     </script>
@@ -146,7 +152,6 @@
 
         const useTimeTracker = () => {
           const [entries, setEntries] = useState([]);
-          // NEU: theme als Einstellung hinzugefügt (Standard: indigo)
           const [settings, setSettings] = useState({ hourlyRate: 15, userName: '', darkMode: false, theme: 'indigo' });
 
           useEffect(() => {
@@ -155,7 +160,6 @@
             
             setEntries(savedEntries);
             if (savedSettings) {
-                // Stelle sicher, dass alte Speicherstände ein Theme bekommen
                 if (!savedSettings.theme) savedSettings.theme = 'indigo';
                 setSettings(savedSettings);
             }
@@ -488,7 +492,6 @@
             window.location.reload();
           };
 
-          // Komplett neue und abgesicherte Icon-Upload Logik
           const handleIconUpload = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -500,26 +503,32 @@
                         const startX = (img.width - size) / 2;
                         const startY = (img.height - size) / 2;
 
-                        const canvas = document.createElement('canvas');
-                        // ZWINGEND 192x192 für perfekten Kompromiss aus Qualität und Dateigröße
-                        canvas.width = 192;
-                        canvas.height = 192;
-                        const ctx = canvas.getContext('2d');
-                        
-                        // Weißen Hintergrund setzen (Android verlangt zwingend deckende "Maskable" Icons)
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, 192, 192);
-                        
-                        ctx.drawImage(img, startX, startY, size, size, 0, 0, 192, 192);
-                        
-                        // Wir erzwingen PNG für optimale Kompatibilität
-                        const newIcon = canvas.toDataURL('image/png');
+                        const resizeImage = (targetSize) => {
+                            const canvas = document.createElement('canvas');
+                            // FIX: Jetzt wird der Canvas tatsächlich auf targetSize (192 und 512) skaliert!
+                            canvas.width = targetSize;
+                            canvas.height = targetSize;
+                            const ctx = canvas.getContext('2d');
+                            
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, targetSize, targetSize);
+                            
+                            // FIX: Zeichnet das Bild nun in der vollen, korrekten Zielgröße
+                            ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+                            
+                            // Speichern als reines PNG
+                            return canvas.toDataURL('image/png'); 
+                        };
 
-                        localStorage.setItem('pwa_icon_192', newIcon);
-                        // Zeitstempel aktualisieren = "Cache-Buster" für Chrome
+                        // Es werden nun echte, fehlerfreie 192x192 und 512x512 Bilder erstellt
+                        const icon192 = resizeImage(192);
+                        const icon512 = resizeImage(512);
+
+                        localStorage.setItem('pwa_icon_192', icon192);
+                        localStorage.setItem('pwa_icon_512', icon512);
                         localStorage.setItem('pwa_icon_updated', Date.now().toString());
                         
-                        alert('Icon wurde erfolgreich geändert!\n\nWICHTIG: Damit das neue Bild erkannt wird, musst du die App (falls schon vorhanden) vom Homescreen löschen und diese Seite komplett neu laden, bevor du die App neu installierst!');
+                        alert('Icon wurde erfolgreich geändert!\n\nWICHTIG: Damit Chrome das neue Bild erkennt, musst du die alte App vom Homescreen löschen und diese Seite komplett neu laden, bevor du die App neu installierst!');
                         window.location.reload();
                     };
                     img.src = event.target.result;
@@ -566,7 +575,6 @@
                 </div>
               </div>
               
-              {/* NEU: Auswahl der App-Farbe (22 verschiedene Kombinationen) */}
               <div className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
                 <h3 className="font-bold text-gray-800 dark:text-white flex items-center">App Design (Farbe)</h3>
                 <p className="text-xs text-gray-500 mb-3">Wähle dein Lieblings-Design (22 Farben):</p>
