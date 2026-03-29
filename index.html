@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- ALL-IN-ONE MANIFEST & ICON GENERATOR (Keine externen Dateien nötig!) -->
+    <!-- ALL-IN-ONE MANIFEST & ICON GENERATOR -->
     <script>
         const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
         const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
@@ -42,7 +42,6 @@
             ]
         };
         
-        // Data-URI Manifest: So umgehen wir Blob-Fehler und externe Dateien komplett!
         const manifestDataUri = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
         document.write('<link rel="manifest" href="' + manifestDataUri + '">');
     </script>
@@ -68,7 +67,6 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans fixed inset-0 overflow-hidden">
     
-    <!-- Der Hintergrund ist explizit solide, damit der PDF-Trick dahinter unsichtbar funktioniert -->
     <div id="root" class="h-full w-full bg-gray-50 dark:bg-gray-900"></div>
 
     <script type="text/babel" data-presets="react,env">
@@ -146,7 +144,6 @@
             localStorage.setItem('time_settings', JSON.stringify(newSettings));
           };
 
-          // Sicherer State-Update für Hinzufügen
           const addManualEntry = (entry) => {
             const { netHours } = calculateDuration(entry.startTime, entry.endTime);
             const newEntry = {
@@ -162,7 +159,6 @@
             });
           };
 
-          // Sicherer State-Update für einzelnes Löschen
           const deleteEntry = (id) => {
             setEntries(prevEntries => {
                 const newE = prevEntries.filter(e => e.id !== id);
@@ -171,7 +167,6 @@
             });
           };
 
-          // Sicherer State-Update für ganzen Kalendermonat / Archiv löschen
           const deleteMonthEntries = (monthString) => {
             setEntries(prevEntries => {
                 const newE = prevEntries.filter(e => !e.date.startsWith(monthString));
@@ -237,10 +232,6 @@
         const HistoryView = ({ entries, deleteEntry, deleteMonthEntries, settings }) => {
           const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
           const [isGenerating, setIsGenerating] = useState(false);
-          
-          // NEUE STATE-LOGIK FÜR SICHERES LÖSCHEN (umgeht App-Blockaden von Android)
-          const [confirmMonthDelete, setConfirmMonthDelete] = useState(false);
-          const [confirmEntryId, setConfirmEntryId] = useState(null);
 
           const filteredEntries = useMemo(() => {
             return entries.filter(e => e.date.startsWith(selectedMonth));
@@ -255,15 +246,11 @@
 
           const displayMonth = selectedMonth.split('-').reverse().join('.');
 
-          // SICHERER MONATS-LÖSCHBUTTON (Sicherheitsabfrage als Doppel-Klick statt window.confirm)
+          // Reparierte Löschfunktion für Archiv (Klassisches Confirm)
           const handleMonthDelete = () => {
             if (filteredEntries.length === 0) return;
-            if (confirmMonthDelete) {
+            if (window.confirm(`Möchtest du wirklich das gesamte Archiv für den Kalendermonat ${displayMonth} löschen?`)) {
                 deleteMonthEntries(selectedMonth);
-                setConfirmMonthDelete(false);
-            } else {
-                setConfirmMonthDelete(true);
-                setTimeout(() => setConfirmMonthDelete(false), 3000); // Reset nach 3 Sekunden
             }
           };
 
@@ -289,7 +276,7 @@
             window.print();
           };
 
-          // DIE FEHLERFREIE PDF & WHATSAPP METHODE (Verhindert das Abschneiden durch den Viewport-Trick)
+          // DIE FUNKTIONIERENDE WHATSAPP METHODE VOM FREITAG (Ohne outputPdf Bug und ohne leere Seite)
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -305,62 +292,41 @@
                   el.classList.remove('print-table');
                   el.style.display = 'table';
                   el.style.width = '100%';
-                  el.style.tableLayout = 'fixed';
               });
               clone.querySelectorAll('.print-block').forEach(el => {
                   el.classList.remove('print-block');
                   el.style.display = 'block';
               });
               
-              // 1. VIEWPORT TRICK: Wir fixieren die eigentliche App, damit sie sich für den Nutzer nicht verändert
-              const rootEl = document.getElementById('root');
-              rootEl.classList.add('fixed', 'inset-0', 'z-50');
-              
-              // 2. Wir entfernen die strikte Größenbeschränkung vom body, damit der PDF-Container voll "ausrollen" kann
-              document.body.classList.remove('fixed', 'inset-0', 'overflow-hidden');
-              
               const container = document.createElement('div');
+              // Exakt die Methode, die auf deinem Samsung Handy erfolgreich war!
               container.style.position = 'absolute';
+              container.style.left = '-9999px';
               container.style.top = '0';
-              container.style.left = '0';
               container.style.width = '800px'; 
               container.style.padding = '40px';
               container.style.background = 'white';
               container.style.color = 'black';
               container.style.fontFamily = 'sans-serif';
-              container.style.boxSizing = 'border-box';
-              container.style.zIndex = '-10'; // Komplett unsichtbar hinter dem fixierten #root
               
               container.appendChild(clone);
               document.body.appendChild(container);
-
-              // Kurz warten, damit das Handy das große Layout im Hintergrund sicher aufbaut
-              await new Promise(resolve => setTimeout(resolve, 300));
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
 
               const opt = {
-                margin:       0, 
+                margin:       10, 
                 filename:     finalFileName,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { 
-                    scale: 2, 
-                    useCORS: true, 
-                    windowWidth: 800,
-                    width: 800,
-                    scrollY: 0
-                },
-                jsPDF:        { unit: 'px', format: [800, 1131], orientation: 'portrait' } 
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' } 
               };
 
-              // PDF-Generierung mit dem fehlerfreien outputPdf('blob') wie gewünscht
-              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              // FEHLERBEHEBUNG: output('blob') statt outputPdf() !!
+              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
               
-              // 3. AUFRÄUMEN UND ZURÜCKSETZEN
               document.body.removeChild(container);
-              document.body.classList.add('fixed', 'inset-0', 'overflow-hidden');
-              rootEl.classList.remove('fixed', 'inset-0', 'z-50');
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -392,9 +358,6 @@
               console.error('PDF Generierung fehlgeschlagen:', err);
               alert("Fehler beim Erstellen der PDF. Bitte versuche es noch einmal.");
             } finally {
-              // Garantiert sicherstellen, dass die App bei einem Fehler wieder ihr normales Layout bekommt
-              document.body.classList.add('fixed', 'inset-0', 'overflow-hidden');
-              document.getElementById('root').classList.remove('fixed', 'inset-0', 'z-50');
               setIsGenerating(false);
             }
           };
@@ -418,7 +381,7 @@
                         className={`p-2 rounded-lg border ${filteredEntries.length === 0 ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-700' : 'border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/40'} transition flex items-center justify-center`}
                         title="Diesen Kalendermonat löschen"
                     >
-                        {confirmMonthDelete ? <span className="text-xs font-bold px-1">Sicher?</span> : <Trash2 className="w-5 h-5" />}
+                        <Trash2 className="w-5 h-5" />
                     </button>
                 </div>
               </div>
@@ -503,21 +466,18 @@
                           <p className="font-bold text-indigo-600 dark:text-indigo-400">{entry.netHours} h</p>
                           <p className="text-xs text-gray-400">{formatCurrency(entry.earned)}</p>
                         </div>
+                        {/* Reparierter Button für einzelne Einträge */}
                         <button 
                           type="button"
                           onClick={() => {
-                              if (confirmEntryId === entry.id) {
+                              if(window.confirm('Möchtest du diesen Eintrag wirklich löschen?')) {
                                   deleteEntry(entry.id);
-                                  setConfirmEntryId(null);
-                              } else {
-                                  setConfirmEntryId(entry.id);
-                                  setTimeout(() => setConfirmEntryId(null), 3000);
                               }
                           }} 
                           className="p-3 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition min-w-[3.5rem] flex items-center justify-center"
                           title="Eintrag löschen"
                         >
-                          {confirmEntryId === entry.id ? <span className="text-xs font-bold">Sicher?</span> : <Trash2 className="w-5 h-5" />}
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
