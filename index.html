@@ -11,37 +11,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Dynamisches Manifest für Eigene Icons und Namen -->
-    <script>
-        const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
-        const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
-        const savedAppIcon = localStorage.getItem('pwa_app_icon') || defaultIcon;
-
-        const manifest = {
-            "name": savedAppName,
-            "short_name": savedAppName,
-            "display": "standalone",
-            "start_url": location.pathname || ".",
-            "background_color": "#f9fafb",
-            "theme_color": "#4f46e5",
-            "icons": [
-                {
-                    "src": savedAppIcon,
-                    "sizes": "192x192",
-                    "type": savedAppIcon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": savedAppIcon,
-                    "sizes": "512x512",
-                    "type": savedAppIcon.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-        document.write('<link rel="manifest" href="' + URL.createObjectURL(manifestBlob) + '">');
-    </script>
+    <!-- 4. HTML-CODE: Exakte Verlinkung des neuen Manifests -->
+    <link rel="manifest" href="./manifest.json">
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -161,8 +132,13 @@
             saveEntries(entries.filter(e => e.id !== id));
           };
 
+          // NEU: Ganzen Kalendermonat / Archiv löschen
+          const deleteMonthEntries = (monthString) => {
+            saveEntries(entries.filter(e => !e.date.startsWith(monthString)));
+          };
+
           return {
-            entries, settings, addManualEntry, deleteEntry, saveSettings
+            entries, settings, addManualEntry, deleteEntry, deleteMonthEntries, saveSettings
           };
         };
 
@@ -215,9 +191,12 @@
           );
         };
 
-        const HistoryView = ({ entries, deleteEntry, settings }) => {
+        const HistoryView = ({ entries, deleteEntry, deleteMonthEntries, settings }) => {
           const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
           const [isGenerating, setIsGenerating] = useState(false);
+          
+          // State für das Archiv löschen
+          const [confirmMonthDelete, setConfirmMonthDelete] = useState(false);
 
           const filteredEntries = useMemo(() => {
             return entries.filter(e => e.date.startsWith(selectedMonth));
@@ -231,6 +210,18 @@
           }, [filteredEntries]);
 
           const displayMonth = selectedMonth.split('-').reverse().join('.');
+
+          // Reparierte Löschfunktion für Archiv (Doppelklick-Sicherung, blockiert keine PWAs)
+          const handleMonthDelete = () => {
+            if (filteredEntries.length === 0) return;
+            if (confirmMonthDelete) {
+                deleteMonthEntries(selectedMonth);
+                setConfirmMonthDelete(false);
+            } else {
+                setConfirmMonthDelete(true);
+                setTimeout(() => setConfirmMonthDelete(false), 3000);
+            }
+          };
 
           const exportCSV = () => {
             const headers = ['Datum', 'Start', 'Ende', 'Stunden', 'Verdienst'];
@@ -254,7 +245,7 @@
             window.print();
           };
 
-          // NEU: Zuverlässiges Generieren der PDF (100% Unsichtbar & Abgesichert)
+          // Unangetasteter, funktionierender PDF/WhatsApp Code
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -350,12 +341,24 @@
             <div className="p-6 h-full flex flex-col animate-in slide-in-from-bottom-4 duration-300">
               <div className="flex justify-between items-center mb-6 no-print">
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Übersicht</h2>
-                <input 
-                  type="month" 
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
-                />
+                <div className="flex space-x-2">
+                    <input 
+                    type="month" 
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
+                    />
+                    {/* Der neue Button für das Archiv Löschen */}
+                    <button 
+                        type="button"
+                        onClick={handleMonthDelete}
+                        disabled={filteredEntries.length === 0}
+                        className={`p-2 rounded-lg border ${filteredEntries.length === 0 ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-700' : 'border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/40'} transition flex items-center justify-center`}
+                        title="Diesen Kalendermonat löschen"
+                    >
+                        {confirmMonthDelete ? <span className="text-xs font-bold px-1">Sicher?</span> : <Trash2 className="w-5 h-5" />}
+                    </button>
+                </div>
               </div>
 
               {/* Summary Cards */}
@@ -452,30 +455,48 @@
         };
 
         const SettingsView = ({ settings, saveSettings }) => {
-          const [pwaName, setPwaName] = useState(localStorage.getItem('pwa_app_name') || 'Zeiterfassung');
+          // 1. Automatischer Icon-Generator
+          const handleIconUpload = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = () => {
+                const size = Math.min(img.width, img.height);
+                const startX = (img.width - size) / 2;
+                const startY = (img.height - size) / 2;
+
+                const exportSizedIcon = (targetSize) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetSize;
+                    canvas.height = targetSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
+                    
+                    canvas.toBlob((blob) => {
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = URL.createObjectURL(blob);
+                        downloadLink.download = `icon-${targetSize}.png`;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                    }, 'image/png');
+                };
+
+                exportSizedIcon(192);
+                exportSizedIcon(512);
+
+                alert('Bilder wurden zugeschnitten und heruntergeladen! Bitte lade icon-192.png und icon-512.png auf GitHub hoch.');
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+          };
 
           const handleChange = (e) => {
             const { name, value } = e.target;
             saveSettings({ ...settings, [name]: name === 'hourlyRate' ? (parseFloat(value) || 0) : value });
-          };
-
-          const handleNameSave = () => {
-            localStorage.setItem('pwa_app_name', pwaName);
-            alert('App Name gespeichert! Bitte Seite neu laden, bevor du sie auf den Homescreen legst.');
-            window.location.reload();
-          };
-
-          const handleIconUpload = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    localStorage.setItem('pwa_app_icon', event.target.result);
-                    alert('App Icon gespeichert! Bitte Seite neu laden, bevor du sie auf den Homescreen legst.');
-                    window.location.reload();
-                };
-                reader.readAsDataURL(file);
-            }
           };
 
           return (
@@ -517,31 +538,16 @@
                 </div>
               </div>
 
-              {/* App Personalisieren */}
+              {/* App Personalisieren Upload */}
               <div className="space-y-4 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl shadow-sm border border-indigo-100 dark:border-indigo-800/50">
-                <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Personalisieren</h3>
+                <h3 className="font-bold text-indigo-900 dark:text-indigo-100 flex items-center">App Icon Generator</h3>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 leading-relaxed mb-4">
-                  Wichtig: Stelle Namen und Bild ein, <b>bevor</b> du die Webseite als App auf dem Homescreen installierst! (Wenn schon installiert: App löschen, hier einstellen, neu installieren).
+                  Lade ein Bild hoch. Die App schneidet es automatisch quadratisch zu und lädt dir die benötigten Dateien (icon-192.png und icon-512.png) herunter.
                 </p>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">App Name</label>
-                  <div className="flex space-x-2">
-                    <input 
-                      type="text" value={pwaName} onChange={e => setPwaName(e.target.value)} placeholder="Mein Stundenbuch"
-                      className="flex-1 p-3 text-base rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none" 
-                    />
-                    <button onClick={handleNameSave} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl font-medium transition active:scale-[0.98]">
-                      Speichern
-                    </button>
-                  </div>
-                </div>
-
                 <div className="space-y-2 pt-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
-                  <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition">
-                    <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Bild auswählen...</span>
-                    <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleIconUpload} className="hidden" />
+                  <label className="flex items-center justify-center w-full p-4 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition bg-white dark:bg-gray-800">
+                    <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium flex items-center"><Image className="w-4 h-4 mr-2"/>Bild auswählen & zuschneiden</span>
+                    <input type="file" accept="image/*" onChange={handleIconUpload} className="hidden" />
                   </label>
                 </div>
               </div>
@@ -637,6 +643,21 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+    </script>
+    
+    <!-- 3. HTML-CODE: Exakte Registrierung des Service Workers -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+              console.log('ServiceWorker erfolgreich registriert mit Scope: ', registration.scope);
+            })
+            .catch(error => {
+              console.log('ServiceWorker Registrierung fehlgeschlagen: ', error);
+            });
+        });
+      }
     </script>
 </body>
 </html>
