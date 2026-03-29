@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
-    <!-- DYNAMISCHES MANIFEST & ICONS (Vollautomatisch, keine externen Dateien nötig) -->
+    <!-- DYNAMISCHES MANIFEST & ICONS (Vollautomatisch, für echte WebAPK-Anerkennung) -->
     <script>
         (function() {
             const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
@@ -47,11 +47,13 @@
             
             const linkManifest = document.createElement('link');
             linkManifest.rel = 'manifest';
+            linkManifest.id = 'dynamic-manifest';
             linkManifest.href = manifestDataUrl;
             document.head.appendChild(linkManifest);
 
             const linkApple = document.createElement('link');
             linkApple.rel = 'apple-touch-icon';
+            linkApple.id = 'apple-touch-icon';
             linkApple.href = icon192;
             document.head.appendChild(linkApple);
         })();
@@ -482,10 +484,10 @@
 
           const handleNameSave = () => {
             localStorage.setItem('pwa_app_name', pwaName);
-            window.location.reload(); // Automatisches Neuladen, um den Namen global zu übernehmen
+            window.location.reload(); 
           };
 
-          // NEU: Bild wird hochgeladen, automatisch zugeschnitten, als PNG gespeichert und sofort ins System übernommen.
+          // NEU: VOLLAUTOMATISCHER BILD-UPLOAD & SOFORTIGE INSTALLATION
           const handleIconSelect = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -518,8 +520,33 @@
                         localStorage.setItem('pwa_icon_512', newIcon512);
                         setPreviewIcon(newIcon192); 
                         
-                        // App direkt neu laden, um das Icon live in der gesamten Web-Umgebung zu verteilen
-                        window.location.reload();
+                        // Live Manifest Update für den Installations-Prompt
+                        const manifestObj = {
+                            "name": pwaName,
+                            "short_name": pwaName,
+                            "display": "standalone",
+                            "start_url": location.pathname || ".",
+                            "background_color": settings.darkMode ? "#111827" : "#f9fafb",
+                            "theme_color": "#4f46e5",
+                            "icons": [
+                                { "src": newIcon192, "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+                                { "src": newIcon512, "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+                            ]
+                        };
+                        const newManifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
+                        document.getElementById('dynamic-manifest').href = newManifestUrl;
+                        document.getElementById('apple-touch-icon').href = newIcon192;
+
+                        // App löst SOFORT den Installationsbildschirm des Handys aus
+                        if (installPrompt) {
+                            installPrompt.prompt();
+                            installPrompt.userChoice.then(() => {
+                                window.location.reload(); // Danach neuladen für finale UI Anpassung
+                            });
+                        } else {
+                            alert("Icon erfolgreich angepasst! Du kannst die App nun über das Browser-Menü deines Handys zum Startbildschirm hinzufügen.");
+                            window.location.reload();
+                        }
                     };
                     img.src = event.target.result;
                 };
@@ -531,7 +558,7 @@
             <div className="p-6 h-full overflow-y-auto animate-in slide-in-from-left-4 duration-300 pb-32">
               <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Einstellungen</h2>
 
-              {/* NEU: App Installieren Button (wird automatisch angezeigt, wenn das Handy es unterstützt) */}
+              {/* Install Button bleibt als Fallback sichtbar, falls der Nutzer den Prompt abricht */}
               {installPrompt && (
                 <div className="space-y-4 bg-green-50 dark:bg-green-900/20 p-6 rounded-2xl shadow-sm border border-green-200 dark:border-green-800/50 mb-6">
                   <h3 className="font-bold text-green-900 dark:text-green-100 flex items-center">App auf dem Handy installieren</h3>
@@ -616,8 +643,8 @@
                   <div className="flex items-center space-x-3">
                     <img src={previewIcon} alt="Aktuelles Icon" className={`w-16 h-16 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 object-cover shrink-0 bg-${theme}-50 dark:bg-gray-800 p-0.5`} />
                     <label className={`flex-1 flex items-center justify-center p-4 border-2 border-dashed border-${theme}-300 dark:border-${theme}-700 rounded-xl cursor-pointer hover:bg-${theme}-100 dark:hover:bg-${theme}-800/40 transition h-16`}>
-                      <span className={`text-sm text-${theme}-600 dark:text-${theme}-400 font-medium text-center leading-tight`}>Neues Bild auswählen<br/><span className="text-[10px] font-normal opacity-80">(wird autom. übernommen)</span></span>
-                      {/* Der Speichern-Button entfällt. Das Bild wird sofort nach Auswahl übernommen! */}
+                      <span className={`text-sm text-${theme}-600 dark:text-${theme}-400 font-medium text-center leading-tight py-1`}>Bild wählen &<br/>sofort installieren</span>
+                      {/* Der Speichern-Button ist endgültig weg! Alles 100% automatisch. */}
                       <input type="file" accept="image/png, image/jpeg, image/webp" onClick={(e) => {e.target.value = null;}} onChange={handleIconSelect} className="hidden" />
                     </label>
                   </div>
@@ -637,13 +664,13 @@
           const tracker = useTimeTracker();
           const theme = tracker.settings.theme || 'indigo';
 
-          // NEU: Install-Prompt Management
+          // Install-Prompt Management
           const [installPrompt, setInstallPrompt] = useState(null);
 
           useEffect(() => {
             const handleBeforeInstallPrompt = (e) => {
-              e.preventDefault(); // Verhindert den Standard-Banner des Browsers
-              setInstallPrompt(e); // Speichert das Event, um den Button anzuzeigen
+              e.preventDefault(); 
+              setInstallPrompt(e); 
             };
             window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
             return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -651,10 +678,10 @@
 
           const handleInstallClick = async () => {
             if (!installPrompt) return;
-            installPrompt.prompt(); // Zeigt den nativen Installations-Dialog
+            installPrompt.prompt(); 
             const { outcome } = await installPrompt.userChoice;
             if (outcome === 'accepted') {
-              setInstallPrompt(null); // Versteckt den Button, wenn installiert wurde
+              setInstallPrompt(null); 
             }
           };
 
