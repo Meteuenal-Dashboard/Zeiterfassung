@@ -19,17 +19,22 @@
             
             const icon192 = localStorage.getItem('pwa_icon_192') || defaultIcon;
             const icon512 = localStorage.getItem('pwa_icon_512') || defaultIcon;
+            
+            // NEU: Lade die aktuelle Versionsnummer des Icons
+            const iconUpdated = localStorage.getItem('pwa_icon_updated') || '1';
 
             const getType = (src) => {
                 if (src.startsWith('data:image/svg')) return 'image/svg+xml';
-                if (src.startsWith('data:image/webp')) return 'image/webp'; // Falls noch alte Daten im Speicher sind
+                if (src.startsWith('data:image/webp')) return 'image/webp';
                 return 'image/png';
             };
 
             const manifest = {
                 "name": savedAppName,
                 "short_name": savedAppName,
-                "start_url": ".",
+                // FIX: "Cache-Buster" Trick! 
+                // Wir zwingen Chrome durch die wechselnde URL zu erkennen, dass ein NEUES Icon existiert und er nicht das alte laden darf.
+                "start_url": window.location.pathname + "?v=" + iconUpdated,
                 "display": "standalone",
                 "background_color": "#f9fafb",
                 "theme_color": "#4f46e5",
@@ -61,8 +66,6 @@
                 ]
             };
             
-            // FIX: Base64-Codierung für das komplette Manifest. 
-            // So schmiert Chrome auch bei sehr langen PNG-Datenketten nicht ab und lädt das Icon sicher.
             const manifestJson = JSON.stringify(manifest);
             const base64Manifest = btoa(unescape(encodeURIComponent(manifestJson)));
             const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
@@ -72,7 +75,6 @@
             link.href = manifestDataUrl;
             document.head.appendChild(link);
 
-            // Favicon und Apple Icon setzen
             const appleLink = document.createElement('link');
             appleLink.rel = 'apple-touch-icon';
             appleLink.href = icon192;
@@ -533,6 +535,9 @@
 
                         localStorage.setItem('pwa_icon_192', icon192);
                         localStorage.setItem('pwa_icon_512', icon512);
+                        
+                        // NEU: Speichere den neuen Zeitstempel ab, damit Chrome gezwungen wird, die App neu zu betrachten
+                        localStorage.setItem('pwa_icon_updated', Date.now().toString());
                         
                         alert('Icon wurde erfolgreich geändert!\n\nWICHTIG: Damit Chrome das neue Bild erkennt, musst du die alte App vom Homescreen löschen und diese Seite komplett neu laden, bevor du die App neu installierst!');
                         window.location.reload();
