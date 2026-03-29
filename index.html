@@ -279,7 +279,7 @@
             window.print();
           };
 
-          // Zuverlässiges Generieren der PDF via WhatsApp Share API
+          // Die absolut zuverlässige, "unsichtbare" Methode von Freitag für das PDF Sharing!
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -295,7 +295,6 @@
                   el.classList.remove('print-table');
                   el.style.display = 'table';
                   el.style.width = '100%';
-                  el.style.tableLayout = 'fixed';
               });
               clone.querySelectorAll('.print-block').forEach(el => {
                   el.classList.remove('print-block');
@@ -303,39 +302,37 @@
               });
               
               const container = document.createElement('div');
+              // Exakt dieser Trick zwingt das Samsung-Handy, die PDF vollständig zu rendern, ohne dass du ein Flackern siehst.
               container.style.position = 'absolute';
-              container.style.left = '0';
               container.style.top = '0';
-              container.style.zIndex = '-9999';
+              container.style.left = '0';
+              container.style.zIndex = '-1'; 
+              container.style.opacity = '0.01'; // Nahezu unsichtbar
               container.style.width = '800px'; 
-              container.style.maxWidth = '800px';
               container.style.padding = '40px';
               container.style.background = 'white';
               container.style.color = 'black';
               container.style.fontFamily = 'sans-serif';
-              container.style.boxSizing = 'border-box';
               
               container.appendChild(clone);
               document.body.appendChild(container);
+
+              // 200ms warten, damit der Browser rendern kann
+              await new Promise(resolve => setTimeout(resolve, 200));
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
               const finalFileName = fileName.replace(/\s+/g, '_');
 
               const opt = {
-                margin:       0, 
+                margin:       10, 
                 filename:     finalFileName,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { 
-                    scale: 2, 
-                    useCORS: true, 
-                    windowWidth: 800,
-                    width: 800,
-                    scrollY: 0
-                },
-                jsPDF:        { unit: 'px', format: [800, 1131], orientation: 'portrait' } 
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: 800 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' } 
               };
 
-              const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+              // Wieder auf die korrekte und funktionierende .output('blob') Version geändert!
+              const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
               
               document.body.removeChild(container);
               
@@ -385,6 +382,7 @@
                     className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
                     />
                     <button 
+                        type="button"
                         onClick={handleMonthDelete}
                         disabled={filteredEntries.length === 0}
                         className={`p-2 rounded-lg border ${filteredEntries.length === 0 ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-700' : 'border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/40'} transition`}
@@ -476,6 +474,7 @@
                           <p className="text-xs text-gray-400">{formatCurrency(entry.earned)}</p>
                         </div>
                         <button 
+                          type="button"
                           onClick={() => {
                               if(window.confirm('Möchtest du diesen Eintrag wirklich löschen?')) {
                                   deleteEntry(entry.id);
