@@ -11,42 +11,51 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
-    <!-- DEIN ORIGINALER MANIFEST CODE (jetzt 100% stabil durch JPEG-Kompression) -->
+    <!-- DYNAMISCHES MANIFEST (Sicher implementiert ohne document.write) -->
     <script>
-        const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
-        const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
-        
-        // Wir laden die zugeschnittenen Bilder oder greifen auf das Original zurück
-        const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
-        const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+        (function() {
+            const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
+            const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+            
+            const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+            const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
 
-        const manifest = {
-            "name": savedAppName,
-            "short_name": savedAppName,
-            "display": "standalone",
-            "start_url": location.pathname || ".",
-            "background_color": "#f9fafb",
-            "theme_color": "#4f46e5",
-            "icons": [
-                {
-                    "src": icon192,
-                    "sizes": "192x192",
-                    "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/jpeg",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": icon512,
-                    "sizes": "512x512",
-                    "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/jpeg",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-        
-        // Direkte, saubere URL-Generierung ohne fehleranfällige Blobs, da unsere Bilder jetzt winzige JPEGs sind.
-        const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-        document.write('<link rel="manifest" href="' + manifestDataUrl + '">');
-        document.write('<link rel="apple-touch-icon" href="' + icon192 + '">');
+            const manifest = {
+                "name": savedAppName,
+                "short_name": savedAppName,
+                "display": "standalone",
+                "start_url": location.pathname || ".",
+                "background_color": "#f9fafb",
+                "theme_color": "#4f46e5",
+                "icons": [
+                    {
+                        "src": icon192,
+                        "sizes": "192x192",
+                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/jpeg",
+                        "purpose": "any maskable"
+                    },
+                    {
+                        "src": icon512,
+                        "sizes": "512x512",
+                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/jpeg",
+                        "purpose": "any maskable"
+                    }
+                ]
+            };
+            
+            // Manifest und Icons sicher ins Dokument einhängen
+            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+            
+            const linkManifest = document.createElement('link');
+            linkManifest.rel = 'manifest';
+            linkManifest.href = manifestDataUrl;
+            document.head.appendChild(linkManifest);
+
+            const linkApple = document.createElement('link');
+            linkApple.rel = 'apple-touch-icon';
+            linkApple.href = icon192;
+            document.head.appendChild(linkApple);
+        })();
     </script>
     
     <!-- Tailwind CSS (Design) -->
@@ -97,7 +106,7 @@
         const Moon = (props) => <IconBase {...props}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></IconBase>;
         const Sun = (props) => <IconBase {...props}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></IconBase>;
         const Share2 = (props) => <IconBase {...props}><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></IconBase>;
-        const Image = (props) => <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></IconBase>;
+        const ImageLogo = (props) => <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></IconBase>;
 
         // ==========================================
         // CORE LOGIC & UTILITIES
@@ -479,7 +488,6 @@
             window.location.reload();
           };
 
-          // Schritt 1: Bild SOFORT bei Auswahl fehlerfrei auf die quadratische Box zuschneiden und komprimieren
           const handleIconSelect = (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -500,17 +508,15 @@
                             ctx.fillStyle = '#ffffff';
                             ctx.fillRect(0, 0, targetSize, targetSize);
                             
-                            // Bild wird exakt in der Mitte proportional (ohne Verzerrung) ausgeschnitten
                             ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
                             
-                            // Nutze leicht komprimiertes JPEG, damit der Speicher bei Fotos nicht platzt
                             return canvas.toDataURL('image/jpeg', 0.8);
                         };
 
                         const newIcon192 = resizeImage(192);
                         const newIcon512 = resizeImage(512);
 
-                        setPreviewIcon(newIcon192); // Sofortige Vorschau in der App
+                        setPreviewIcon(newIcon192); 
                         setPendingIcons({ icon192: newIcon192, icon512: newIcon512 });
                     };
                     img.src = event.target.result;
@@ -519,7 +525,6 @@
             }
           };
 
-          // Schritt 2: Den fertigen Zuschnitt bestätigen und speichern
           const handleIconSave = () => {
             if (!pendingIcons) return;
             try {
@@ -607,9 +612,8 @@
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><Image className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center"><ImageLogo className="w-4 h-4 mr-2"/> Eigenes App Icon (Foto)</label>
                   
-                  {/* Bildvorschau und Dateiauswahl */}
                   <div className="flex items-center space-x-3">
                     <img src={previewIcon} alt="Aktuelles Icon" className={`w-16 h-16 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 object-cover shrink-0 bg-${theme}-50 dark:bg-gray-800 p-0.5`} />
                     <label className={`flex-1 flex items-center justify-center p-4 border-2 border-dashed border-${theme}-300 dark:border-${theme}-700 rounded-xl cursor-pointer hover:bg-${theme}-100 dark:hover:bg-${theme}-800/40 transition h-16`}>
@@ -618,7 +622,6 @@
                     </label>
                   </div>
 
-                  {/* Neuer Speichern-Button: Erscheint nur, wenn ein neues Bild ausgewählt wurde */}
                   {pendingIcons && (
                     <button type="button" onClick={handleIconSave} className={`w-full py-3 bg-${theme}-600 hover:bg-${theme}-700 text-white rounded-xl font-medium transition active:scale-[0.98] mt-2 shadow-md shadow-${theme}-600/30 flex justify-center items-center`}>
                       <CheckCircle2 className="w-5 h-5 mr-2" /> Bild speichern & anwenden
@@ -738,6 +741,42 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+    </script>
+
+    <!-- DYNAMISCHER SERVICE WORKER (Befriedigt Chrome's PWA Kriterien für Single-File) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Ein minimalistischer Service Worker Code
+                const swCode = `
+                    self.addEventListener('install', (e) => {
+                        self.skipWaiting();
+                    });
+                    self.addEventListener('activate', (e) => {
+                        e.waitUntil(self.clients.claim());
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        // Bei Netzwerkfehlern einen simplen Text als Fallback liefern
+                        e.respondWith(
+                            fetch(e.request).catch(() => new Response('Du bist offline.'))
+                        );
+                    });
+                `;
+                
+                // Erstelle eine virtuelle URL für den Worker im Arbeitsspeicher
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                // Registriere den virtuellen Service Worker
+                navigator.serviceWorker.register(swUrl)
+                    .then(registration => {
+                        console.log('Single-File ServiceWorker registriert!');
+                    })
+                    .catch(error => {
+                        console.warn('ServiceWorker Registrierung fehlgeschlagen.', error);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
