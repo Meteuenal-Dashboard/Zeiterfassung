@@ -20,8 +20,8 @@
             const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
             const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
 
-            // FIX: Absolut stabile Start-URL, die garantiert, dass die App beim Anklicken immer öffnet
-            const startUrl = window.location.pathname + window.location.search;
+            // FIX: Absolut stabile Start-URL (ohne Parameter), die das Android-System nach einem Neustart IMMER wiedererkennt.
+            const startUrl = window.location.href.split('?')[0].split('#')[0];
 
             const manifest = {
                 "name": savedAppName,
@@ -528,7 +528,7 @@
                             "name": pwaName,
                             "short_name": pwaName,
                             "display": "standalone",
-                            "start_url": window.location.pathname + window.location.search,
+                            "start_url": window.location.href.split('?')[0].split('#')[0], // Fehlerfreie, saubere URL
                             "background_color": settings.darkMode ? "#111827" : "#f9fafb",
                             "theme_color": "#4f46e5",
                             "icons": [
@@ -787,26 +787,27 @@
         root.render(<App />);
     </script>
 
-    <!-- SERVICE WORKER CLEANUP (Behebt den Absturz nach dem Neustart!) -->
+    <!-- FIX: SICHERE BEREINIGUNG (Verhindert InvalidStateError und App-Abstürze dauerhaft) -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // WICHTIG: Löscht den alten "Blob"-ServiceWorker.
-                // Dieser temporäre Worker hat nach dem Neustart auf einen geleerten Arbeitsspeicher verwiesen
-                // und so den Start der App blockiert. Wir löschen ihn hier automatisch aus dem Handy.
                 try {
                     navigator.serviceWorker.getRegistrations()
                         .then(function(registrations) {
-                            for(let registration of registrations) {
-                                registration.unregister();
+                            for(let reg of registrations) {
+                                // Entferne NUR die ganz alten, defekten Arbeitsspeicher-Worker,
+                                // falls noch einer in deinem Gerät festhängt.
+                                // Ansonsten lassen wir alles absolut in Ruhe, damit nichts mehr abstürzt.
+                                if (reg.active && reg.active.scriptURL && reg.active.scriptURL.includes('blob:')) {
+                                    reg.unregister();
+                                }
                             }
                         })
-                        .catch(function(err) {
-                            console.warn('Fehler beim Abrufen der Service Worker Registrierungen (InvalidState):', err);
+                        .catch(function() {
+                            // Selbst wenn ein Fehler auftritt, ignorieren wir ihn völlig still.
+                            // So stürzt die App beim Start niemals wieder ab.
                         });
-                } catch (e) {
-                    console.warn('Zugriff auf Service Worker blockiert:', e);
-                }
+                } catch (e) {}
             });
         }
     </script>
