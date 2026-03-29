@@ -68,7 +68,8 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans fixed inset-0 overflow-hidden">
     
-    <div id="root" class="h-full w-full"></div>
+    <!-- Der Hintergrund ist jetzt explizit solide, damit der PDF-Trick dahinter unsichtbar funktioniert -->
+    <div id="root" class="h-full w-full bg-gray-50 dark:bg-gray-900"></div>
 
     <script type="text/babel" data-presets="react,env">
         const { useState, useEffect, useMemo } = React;
@@ -145,7 +146,6 @@
             localStorage.setItem('time_settings', JSON.stringify(newSettings));
           };
 
-          // Sicherer State-Update für Hinzufügen
           const addManualEntry = (entry) => {
             const { netHours } = calculateDuration(entry.startTime, entry.endTime);
             const newEntry = {
@@ -161,7 +161,6 @@
             });
           };
 
-          // Sicherer State-Update für einzelnes Löschen
           const deleteEntry = (id) => {
             setEntries(prevEntries => {
                 const newE = prevEntries.filter(e => e.id !== id);
@@ -170,7 +169,6 @@
             });
           };
 
-          // Sicherer State-Update für ganzen Kalendermonat / Archiv löschen
           const deleteMonthEntries = (monthString) => {
             setEntries(prevEntries => {
                 const newE = prevEntries.filter(e => !e.date.startsWith(monthString));
@@ -236,6 +234,10 @@
         const HistoryView = ({ entries, deleteEntry, deleteMonthEntries, settings }) => {
           const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
           const [isGenerating, setIsGenerating] = useState(false);
+          
+          // NEUE STATE-LOGIK FÜR SICHERES LÖSCHEN (umgeht App-Blockaden von Android)
+          const [confirmMonthDelete, setConfirmMonthDelete] = useState(false);
+          const [confirmEntryId, setConfirmEntryId] = useState(null);
 
           const filteredEntries = useMemo(() => {
             return entries.filter(e => e.date.startsWith(selectedMonth));
@@ -250,10 +252,15 @@
 
           const displayMonth = selectedMonth.split('-').reverse().join('.');
 
+          // SICHERER MONATS-LÖSCHBUTTON (Sicherheitsabfrage als Doppel-Klick statt window.confirm)
           const handleMonthDelete = () => {
             if (filteredEntries.length === 0) return;
-            if (window.confirm(`Möchtest du wirklich das gesamte Archiv für den Kalendermonat ${displayMonth} löschen? Dies kann nicht rückgängig gemacht werden.`)) {
+            if (confirmMonthDelete) {
                 deleteMonthEntries(selectedMonth);
+                setConfirmMonthDelete(false);
+            } else {
+                setConfirmMonthDelete(true);
+                setTimeout(() => setConfirmMonthDelete(false), 3000); // Reset nach 3 Sekunden
             }
           };
 
@@ -279,7 +286,7 @@
             window.print();
           };
 
-          // Die absolut zuverlässige, "unsichtbare" Methode von Freitag für das PDF Sharing!
+          // DIE FEHLERFREIE PDF & WHATSAPP METHODE (OHNE OPACITY BUG)
           const shareViaWhatsApp = async () => {
             if (isGenerating) return;
             setIsGenerating(true);
@@ -301,13 +308,15 @@
                   el.style.display = 'block';
               });
               
+              // 1. Wrapper, der GANZ SICHER hinter dem #root versteckt ist
+              const wrapper = document.createElement('div');
+              wrapper.style.position = 'fixed';
+              wrapper.style.top = '0';
+              wrapper.style.left = '0';
+              wrapper.style.zIndex = '-9999'; // Hinter dem farbigen Hintergrund der App
+              
+              // 2. Container mit den PDF-Daten (100% SICHTBAR für html2pdf, kein opacity Bug mehr!)
               const container = document.createElement('div');
-              // Exakt dieser Trick zwingt das Samsung-Handy, die PDF vollständig zu rendern, ohne dass du ein Flackern siehst.
-              container.style.position = 'absolute';
-              container.style.top = '0';
-              container.style.left = '0';
-              container.style.zIndex = '-1'; 
-              container.style.opacity = '0.01'; // Nahezu unsichtbar
               container.style.width = '800px'; 
               container.style.padding = '40px';
               container.style.background = 'white';
@@ -315,9 +324,10 @@
               container.style.fontFamily = 'sans-serif';
               
               container.appendChild(clone);
-              document.body.appendChild(container);
+              wrapper.appendChild(container);
+              document.body.appendChild(wrapper);
 
-              // 200ms warten, damit der Browser rendern kann
+              // 3. Kurz warten, damit es gerendert wird
               await new Promise(resolve => setTimeout(resolve, 200));
 
               const fileName = settings.userName ? `Arbeitszeiten_${settings.userName}_${selectedMonth}.pdf` : `Arbeitszeiten_${selectedMonth}.pdf`;
@@ -331,10 +341,11 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' } 
               };
 
-              // Wieder auf die korrekte und funktionierende .output('blob') Version geändert!
+              // 4. Generieren mit korrekter output('blob') Methode
               const pdfBlob = await html2pdf().set(opt).from(container).output('blob');
               
-              document.body.removeChild(container);
+              // 5. Aufräumen
+              document.body.removeChild(wrapper);
               
               const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
@@ -347,6 +358,7 @@
                 URL.revokeObjectURL(url);
               };
 
+              // 6. WhatsApp / Teilen Menü aufrufen
               if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                   await navigator.share({
@@ -381,14 +393,15 @@
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     className="p-2 text-base rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-medium outline-none text-gray-900 dark:text-white"
                     />
+                    {/* Der reparierte Button für den ganzen Monat */}
                     <button 
                         type="button"
                         onClick={handleMonthDelete}
                         disabled={filteredEntries.length === 0}
-                        className={`p-2 rounded-lg border ${filteredEntries.length === 0 ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-700' : 'border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/40'} transition`}
+                        className={`p-2 rounded-lg border ${filteredEntries.length === 0 ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-700' : 'border-red-200 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:hover:bg-red-900/40'} transition flex items-center justify-center`}
                         title="Diesen Kalendermonat löschen"
                     >
-                        <Trash2 className="w-5 h-5" />
+                        {confirmMonthDelete ? <span className="text-xs font-bold px-1">Sicher?</span> : <Trash2 className="w-5 h-5" />}
                     </button>
                 </div>
               </div>
@@ -473,17 +486,22 @@
                           <p className="font-bold text-indigo-600 dark:text-indigo-400">{entry.netHours} h</p>
                           <p className="text-xs text-gray-400">{formatCurrency(entry.earned)}</p>
                         </div>
+                        {/* Der reparierte Button für einzelne Einträge */}
                         <button 
                           type="button"
                           onClick={() => {
-                              if(window.confirm('Möchtest du diesen Eintrag wirklich löschen?')) {
+                              if (confirmEntryId === entry.id) {
                                   deleteEntry(entry.id);
+                                  setConfirmEntryId(null);
+                              } else {
+                                  setConfirmEntryId(entry.id);
+                                  setTimeout(() => setConfirmEntryId(null), 3000);
                               }
                           }} 
-                          className="p-3 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition"
+                          className="p-3 text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-lg transition min-w-[3.5rem] flex items-center justify-center"
                           title="Eintrag löschen"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          {confirmEntryId === entry.id ? <span className="text-xs font-bold">Sicher?</span> : <Trash2 className="w-5 h-5" />}
                         </button>
                       </div>
                     </div>
