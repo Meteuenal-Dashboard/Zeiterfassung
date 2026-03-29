@@ -22,7 +22,7 @@
 
             const getType = (src) => {
                 if (src.startsWith('data:image/svg')) return 'image/svg+xml';
-                if (src.startsWith('data:image/webp')) return 'image/webp';
+                if (src.startsWith('data:image/webp')) return 'image/webp'; // Falls noch alte Daten im Speicher sind
                 return 'image/png';
             };
 
@@ -61,9 +61,12 @@
                 ]
             };
             
-            // FIX: WebAPK Server von Google benötigen eine Data-URI. Da wir nun hochkomprimierte WebP-Bilder nutzen,
-            // ist der String kurz genug, um von Chrome nicht mehr blockiert zu werden.
-            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+            // FIX: Base64-Codierung für das komplette Manifest. 
+            // So schmiert Chrome auch bei sehr langen PNG-Datenketten nicht ab und lädt das Icon sicher.
+            const manifestJson = JSON.stringify(manifest);
+            const base64Manifest = btoa(unescape(encodeURIComponent(manifestJson)));
+            const manifestDataUrl = 'data:application/manifest+json;base64,' + base64Manifest;
+            
             const link = document.createElement('link');
             link.rel = 'manifest';
             link.href = manifestDataUrl;
@@ -515,11 +518,14 @@
                             canvas.width = targetSize;
                             canvas.height = targetSize;
                             const ctx = canvas.getContext('2d');
+                            
+                            // FIX: Android Launcher brauchen zwingend PNGs. 
+                            // Wir füllen den Hintergrund weiß auf, da Transparenz oft Probleme (schwarze Ränder) macht!
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(0, 0, targetSize, targetSize);
                             ctx.drawImage(img, startX, startY, size, size, 0, 0, targetSize, targetSize);
                             
-                            // FIX: Statt PNG (oft 2+ Megabyte groß) nutzen wir nun stark komprimiertes WebP (ca. 20-50 KB). 
-                            // Dadurch passt das Bild mühelos in das Manifest und Google Chrome schmiert bei der Installation nicht ab!
-                            return canvas.toDataURL('image/webp', 0.8);
+                            return canvas.toDataURL('image/png'); // Zurück zu PNG für maximale Kompatibilität
                         };
 
                         const icon192 = resizeImage(192);
