@@ -9,11 +9,59 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#4f46e5" id="meta-theme-color">
+    <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
-    <!-- PWA Manifest & Icons -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <!-- DYNAMISCHES MANIFEST & ICONS (Vollautomatisch, stabil für dauerhafte Installation) -->
+    <script>
+        (function() {
+            const savedAppName = localStorage.getItem('pwa_app_name') || 'Zeiterfassung';
+            const defaultIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z'/%3E%3C/svg%3E";
+            
+            const icon192 = localStorage.getItem('pwa_icon_192') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+            const icon512 = localStorage.getItem('pwa_icon_512') || localStorage.getItem('pwa_app_icon') || defaultIcon;
+
+            // FIX: Absolut stabile Start-URL (ohne Parameter), die das Android-System nach einem Neustart IMMER wiedererkennt.
+            // Behebt Abstürze, falls die Datei lokal aufgerufen wird.
+            let startUrl = window.location.href.split('?')[0].split('#')[0];
+            
+            const manifest = {
+                "name": savedAppName,
+                "short_name": savedAppName,
+                "display": "standalone",
+                "start_url": startUrl,
+                "background_color": "#f9fafb",
+                "theme_color": "#4f46e5",
+                "icons": [
+                    {
+                        "src": icon192,
+                        "sizes": "192x192",
+                        "type": icon192.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "any maskable"
+                    },
+                    {
+                        "src": icon512,
+                        "sizes": "512x512",
+                        "type": icon512.startsWith('data:image/svg') ? "image/svg+xml" : "image/png",
+                        "purpose": "any maskable"
+                    }
+                ]
+            };
+            
+            const manifestDataUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+            
+            const linkManifest = document.createElement('link');
+            linkManifest.rel = 'manifest';
+            linkManifest.id = 'dynamic-manifest';
+            linkManifest.href = manifestDataUrl;
+            document.head.appendChild(linkManifest);
+
+            const linkApple = document.createElement('link');
+            linkApple.rel = 'apple-touch-icon';
+            linkApple.id = 'apple-touch-icon';
+            linkApple.href = icon192;
+            document.head.appendChild(linkApple);
+        })();
+    </script>
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -756,24 +804,6 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
-    </script>
-
-    <!-- Zuverlässige Service Worker Registrierung -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Protokoll-Prüfung verhindert Fehler in der Vorschau, erlaubt aber echte Server Installationen
-                if (window.location.protocol === 'https:' || window.location.protocol === 'http:') {
-                    navigator.serviceWorker.register('./sw.js')
-                        .then((registration) => {
-                            console.log('ServiceWorker Registration erfolgreich. Scope:', registration.scope);
-                        })
-                        .catch((error) => {
-                            console.error('ServiceWorker Registration fehlgeschlagen:', error);
-                        });
-                }
-            });
-        }
     </script>
 </body>
 </html>
