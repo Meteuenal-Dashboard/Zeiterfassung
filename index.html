@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Zeiterfassung</title>
     
     <!-- PWA / App-Modus Einstellungen -->
@@ -12,8 +12,9 @@
     <meta name="theme-color" content="#f9fafb" id="meta-theme-color">
 
     <!-- STATISCHES MANIFEST (Zwingend für echte WebAPK Installation ohne URL-Leiste) -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <!-- WICHTIG: Die Pfade haben jetzt ein ./ um Probleme auf GitHub Pages zu vermeiden -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192x192.png">
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -512,14 +513,27 @@
           const tracker = useTimeTracker();
           const theme = tracker.settings.theme || 'indigo';
 
-          // Install-Prompt Management
+          // Install-Prompt Management & Error Diagnose
           const [installPrompt, setInstallPrompt] = useState(null);
-          const [isLocalFile, setIsLocalFile] = useState(false);
+          const [pwaErrors, setPwaErrors] = useState([]);
 
           useEffect(() => {
-            // WARNUNG: Wenn der Nutzer die Datei lokal vom Handy öffnet
-            if (window.location.protocol === 'file:') {
-               setIsLocalFile(true);
+            // Diagnose-Tool: Prüft, welche Dateien Chrome blockieren
+            if (window.location.protocol === 'https:' || window.location.protocol === 'http:') {
+               const filesToCheck = ['manifest.json', 'sw.js', 'icon-192x192.png', 'icon-512x512.png'];
+               const missingFiles = [];
+               
+               Promise.all(filesToCheck.map(file => 
+                   fetch('./' + file)
+                       .then(res => {
+                           if (!res.ok) missingFiles.push(file);
+                       })
+                       .catch(() => missingFiles.push(file))
+               )).then(() => {
+                   if (missingFiles.length > 0) {
+                       setPwaErrors(missingFiles);
+                   }
+               });
             }
 
             const handleBeforeInstallPrompt = (e) => {
@@ -581,15 +595,18 @@
           return (
             <div className="max-w-md mx-auto h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans shadow-2xl relative overflow-hidden transition-colors duration-300">
               
-              {/* LOKALE DATEI WARNUNG */}
-              {isLocalFile && (
-                  <div className="bg-red-500 text-white p-3 text-xs flex items-start gap-3 z-50">
-                     <AlertTriangle className="w-6 h-6 shrink-0 mt-0.5" />
-                     <p>
-                        <b>Achtung!</b> Du hast diese App als lokale Datei auf deinem Handy geöffnet. 
-                        <b> Dein Handy wird sie beim Neustart löschen.</b> Lade diese Datei auf <i>tiiny.host</i> hoch 
-                        und öffne den dortigen Link, damit sie für immer auf deinem Handy bleibt.
-                     </p>
+              {/* Diagnose Fehler-Anzeige (Zeigt fehlende Dateien an) */}
+              {pwaErrors.length > 0 && (
+                  <div className="bg-red-600 text-white p-4 text-sm z-50 shadow-md">
+                     <strong className="flex items-center mb-2 font-bold text-base">
+                         <AlertTriangle className="w-5 h-5 mr-2" />
+                         Installation als App blockiert!
+                     </strong>
+                     <p className="mb-2">Google Chrome erlaubt leider nur das Erstellen einer "Verknüpfung", weil auf deinem Server (GitHub) noch folgende Dateien fehlen oder falsch benannt sind:</p>
+                     <ul className="list-disc pl-6 font-mono bg-red-800/50 p-2 rounded-lg">
+                        {pwaErrors.map(err => <li key={err}>{err}</li>)}
+                     </ul>
+                     <p className="mt-2 text-xs opacity-90">Bitte lade diese Dateien in denselben Ordner wie die index.html hoch, lade die Seite neu und versuche es erneut.</p>
                   </div>
               )}
 
