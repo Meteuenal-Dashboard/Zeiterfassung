@@ -14,7 +14,7 @@
     <!-- STATISCHES MANIFEST (Zwingend für echte WebAPK Installation ohne URL-Leiste) -->
     <!-- WICHTIG: Die Pfade haben jetzt ein ./ um Probleme auf GitHub Pages zu vermeiden -->
     <link rel="manifest" href="./manifest.json">
-    <link rel="apple-touch-icon" href="./icon-192x192.png">
+    <link rel="apple-touch-icon" href="./icon-192x192.png.jpeg">
     
     <!-- Tailwind CSS (Design) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -520,7 +520,7 @@
           useEffect(() => {
             // Diagnose-Tool: Prüft, welche Dateien Chrome blockieren
             if (window.location.protocol === 'https:' || window.location.protocol === 'http:') {
-               const filesToCheck = ['manifest.json', 'sw.js', 'icon-192x192.png', 'icon-512x512.png'];
+               const filesToCheck = ['manifest.json', 'sw.js', 'icon-192x192.png.jpeg', 'icon-512x512.png.jpeg'];
                const missingFiles = [];
                
                Promise.all(filesToCheck.map(file => 
